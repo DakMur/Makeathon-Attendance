@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Light mode (default) */
+:root {
+  --bg-primary: #ffffff;
+  --bg-surface: #f8fafc;
+  --bg-surface-elevated: #f1f5f9;
+  --border-default: #e2e8f0;
+  --border-subtle: #cbd5e1;
+  --text-primary: #09090b;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --accent-blue: #2563eb;
+  --selection-color: #09090b;
+}
+
+/* Dark mode */
+.dark {
+  --bg-primary: #09090b;
+  --bg-surface: #121215;
+  --bg-surface-elevated: #18181b;
+  --border-default: #27272a;
+  --border-subtle: #1f1f23;
+  --text-primary: #fafafa;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
+  --accent-blue: #2563eb;
+  --selection-color: #ffffff;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom dark and light spreadsheet scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0c0c0e;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Light mode scrollbars */
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Cell selection highlight styles */
+.dark .cell-selected {
+  outline: 2px solid #ffffff !important;
+  outline-offset: -2px !important;
+  z-index: 20;
+}
+
+.cell-selected {
+  outline: 2px solid #09090b !important;
+  outline-offset: -2px !important;
+  z-index: 20;
+}
+
+.dark .row-selected {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.row-selected {
+  background-color: rgba(37, 99, 235, 0.05);
+}
+
+/* Remote lock overlay */
+.dark .row-locked {
+  opacity: 0.55;
+  background-color: #121215;
+}
+
+.row-locked {
+  opacity: 0.55;
+  background-color: #f1f5f9;
+}
+
+/* High density table numbers */
+.num-mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
