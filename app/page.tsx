@@ -260,13 +260,14 @@ export default function AttendancePage() {
 
       if (isSupabaseConfigured && supabase) {
         try {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('teams')
             .update({ [field]: value, updated_at: new Date().toISOString() })
-            .eq('sl_no', slNo);
+            .eq('sl_no', slNo)
+            .select();
 
-          if (error) {
-            console.error('Failed to update attendance on Supabase:', error);
+          if (error || !data || data.length === 0) {
+            console.error('Failed to update attendance on Supabase:', error || 'No rows updated. Check Supabase RLS policies.');
             setSyncStatus('error');
           } else {
             setSyncStatus('synced');
@@ -308,13 +309,14 @@ export default function AttendancePage() {
 
       if (isSupabaseConfigured && supabase) {
         try {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('teams')
             .update(updates)
-            .eq('sl_no', slNo);
+            .eq('sl_no', slNo)
+            .select();
 
-          if (error) {
-            console.error('Failed to mark whole team present on Supabase:', error);
+          if (error || !data || data.length === 0) {
+            console.error('Failed to mark whole team present on Supabase:', error || 'No rows updated. Check Supabase RLS policies.');
             setSyncStatus('error');
           } else {
             setSyncStatus('synced');
