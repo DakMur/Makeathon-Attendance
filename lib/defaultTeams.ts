@@ -1,6 +1,18 @@
-import { Team } from './types';
+import { Team, ClassroomPresence } from './types';
 
-export const INITIAL_TEAMS: Team[] = [
+// Helper to determine classroom from sl_no (1-60 distributed over 401-408)
+export function getClassroomIdForTeam(slNo: number): string {
+  if (slNo <= 8) return '401';
+  if (slNo <= 16) return '402';
+  if (slNo <= 24) return '403';
+  if (slNo <= 32) return '404';
+  if (slNo <= 39) return '405';
+  if (slNo <= 46) return '406';
+  if (slNo <= 53) return '407';
+  return '408';
+}
+
+const RAW_TEAMS = [
   { sl_no: 1, team_name: "SAKSHI", member_1: "Anagha BL", member_2: "Khushi Agarwal", member_3: "Subikshaa M", member_4: "Varshini Murthy" },
   { sl_no: 2, team_name: "APEX", member_1: "Harini Krishna", member_2: "Adhithya P", member_3: "Jagath Suman", member_4: "Darshan Darshan" },
   { sl_no: 3, team_name: "KRISHNA", member_1: "Mithil Sai", member_2: "NANDAN S", member_3: "Prerana S K", member_4: "Afnan Zain" },
@@ -61,25 +73,103 @@ export const INITIAL_TEAMS: Team[] = [
   { sl_no: 58, team_name: "SUPREME", member_1: "Sandhya Reddy", member_2: "Syed Imadulla", member_3: "Thriveni S A", member_4: "Teja J" },
   { sl_no: 59, team_name: "TEAM VIKRANT", member_1: "Rishika Dollin", member_2: "Rishabh S K", member_3: "", member_4: "" },
   { sl_no: 60, team_name: "TICKET", member_1: "Saishree Anil", member_2: "Achutha Kaddi", member_3: "Kriishna H S", member_4: "Bhuvan" },
-].map((item, index) => ({
-  id: index + 1,
-  sl_no: item.sl_no,
-  team_name: item.team_name,
-  member_1: item.member_1,
-  member_1_oct7: false,
-  member_1_oct8: false,
-  member_1_oct9: false,
-  member_2: item.member_2,
-  member_2_oct7: false,
-  member_2_oct8: false,
-  member_2_oct9: false,
-  member_3: item.member_3,
-  member_3_oct7: false,
-  member_3_oct8: false,
-  member_3_oct9: false,
-  member_4: item.member_4,
-  member_4_oct7: false,
-  member_4_oct8: false,
-  member_4_oct9: false,
-  comments: '',
-}));
+];
+
+function generatePhone(slNo: number, memberIdx: number): string {
+  const seed = (slNo * 997 + memberIdx * 1337) % 90000;
+  return `+91 98${(40000 + seed).toString().padStart(5, '0')} ${String(100 + (slNo * 7 + memberIdx)).slice(-3)}`;
+}
+
+export const INITIAL_TEAMS: Team[] = RAW_TEAMS.map((item, index) => {
+  const classroom_id = getClassroomIdForTeam(item.sl_no);
+  return {
+    id: index + 1,
+    sl_no: item.sl_no,
+    team_name: item.team_name,
+    classroom_id,
+    member_1: item.member_1,
+    member_1_phone: item.member_1 ? generatePhone(item.sl_no, 1) : '',
+    member_1_oct7: false,
+    member_1_oct8: false,
+    member_1_oct9: false,
+    member_2: item.member_2,
+    member_2_phone: item.member_2 ? generatePhone(item.sl_no, 2) : '',
+    member_2_oct7: false,
+    member_2_oct8: false,
+    member_2_oct9: false,
+    member_3: item.member_3,
+    member_3_phone: item.member_3 ? generatePhone(item.sl_no, 3) : '',
+    member_3_oct7: false,
+    member_3_oct8: false,
+    member_3_oct9: false,
+    member_4: item.member_4,
+    member_4_phone: item.member_4 ? generatePhone(item.sl_no, 4) : '',
+    member_4_oct7: false,
+    member_4_oct8: false,
+    member_4_oct9: false,
+    comments: '',
+  };
+});
+
+// Seed classroom presence entries for initial day (Day 1)
+export function getInitialClassroomPresence(dayNumber: number = 1): ClassroomPresence[] {
+  const presences: ClassroomPresence[] = [];
+  INITIAL_TEAMS.forEach((team) => {
+    const classroom_id = team.classroom_id || getClassroomIdForTeam(team.sl_no);
+    const members = [
+      { name: team.member_1, phone: team.member_1_phone, isLead: true },
+      { name: team.member_2, phone: team.member_2_phone, isLead: false },
+      { name: team.member_3, phone: team.member_3_phone, isLead: false },
+      { name: team.member_4, phone: team.member_4_phone, isLead: false },
+    ];
+
+    members.forEach((m) => {
+      if (m.name && m.name.trim() !== '') {
+        presences.push({
+          day_number: dayNumber,
+          classroom_id,
+          team_name: team.team_name,
+          participant_name: m.name.trim(),
+          phone_number: m.phone || '',
+          is_team_lead: m.isLead,
+          is_in_room: true,
+          last_toggle_time: new Date().toISOString(),
+          updated_by: 'system',
+        });
+      }
+    });
+  });
+  return presences;
+}
+
+export const DEFAULT_PASSWORDS: Record<string, string> = {
+  admin: 'mibomba',
+  checkin: 'checkin123',
+  '401': 'room401',
+  '402': 'room402',
+  '403': 'room403',
+  '404': 'room404',
+  '405': 'room405',
+  '406': 'room406',
+  '407': 'room407',
+  '408': 'room408',
+};
+
+export const DEFAULT_COORDINATORS: Record<string, string[]> = {
+  '401': ['Alex Kumar', 'Samarth V'],
+  '402': ['John D', 'Priya S'],
+  '403': ['Kiran Rao', 'Deepa M'],
+  '404': ['Rohit Sharma', 'Ananya K'],
+  '405': ['Varun Reddy', 'Sneha P'],
+  '406': ['Tanvi Shah', 'Nikhil G'],
+  '407': ['Gautam N', 'Meera R'],
+  '408': ['Harish B', 'Divya C'],
+};
+
+export const DEFAULT_QUICK_ACTIONS = [
+  'Breakfast',
+  'Lunch',
+  'Dinner',
+  'Snack Break',
+  'Event',
+];

@@ -1,25 +1,51 @@
 -- ==============================================================================
--- Supabase Schema & Seed Data for Makeathon Attendance Spreadsheet
+-- MAKEATHON OPS: Multi-Room Attendance & Event Operations Platform Schema
 -- ==============================================================================
 
--- 1. Create Teams & Attendance Table
+-- 1. Card Access Passwords Table
+CREATE TABLE IF NOT EXISTS public.card_passwords (
+    card_id TEXT PRIMARY KEY, -- 'admin', 'checkin', '401'..'408'
+    password_hash TEXT NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Seed Default Passwords
+INSERT INTO public.card_passwords (card_id, password_hash) VALUES
+('admin', 'mibomba'),
+('checkin', 'checkin123'),
+('401', 'room401'),
+('402', 'room402'),
+('403', 'room403'),
+('404', 'room404'),
+('405', 'room405'),
+('406', 'room406'),
+('407', 'room407'),
+('408', 'room408')
+ON CONFLICT (card_id) DO NOTHING;
+
+-- 2. Master Teams & Main Attendance Table
 CREATE TABLE IF NOT EXISTS public.teams (
     id SERIAL PRIMARY KEY,
     sl_no INT UNIQUE NOT NULL,
     team_name TEXT NOT NULL,
+    classroom_id TEXT DEFAULT '401',
     member_1 TEXT DEFAULT '',
+    member_1_phone TEXT DEFAULT '',
     member_1_oct7 BOOLEAN DEFAULT FALSE,
     member_1_oct8 BOOLEAN DEFAULT FALSE,
     member_1_oct9 BOOLEAN DEFAULT FALSE,
     member_2 TEXT DEFAULT '',
+    member_2_phone TEXT DEFAULT '',
     member_2_oct7 BOOLEAN DEFAULT FALSE,
     member_2_oct8 BOOLEAN DEFAULT FALSE,
     member_2_oct9 BOOLEAN DEFAULT FALSE,
     member_3 TEXT DEFAULT '',
+    member_3_phone TEXT DEFAULT '',
     member_3_oct7 BOOLEAN DEFAULT FALSE,
     member_3_oct8 BOOLEAN DEFAULT FALSE,
     member_3_oct9 BOOLEAN DEFAULT FALSE,
     member_4 TEXT DEFAULT '',
+    member_4_phone TEXT DEFAULT '',
     member_4_oct7 BOOLEAN DEFAULT FALSE,
     member_4_oct8 BOOLEAN DEFAULT FALSE,
     member_4_oct9 BOOLEAN DEFAULT FALSE,
@@ -27,89 +53,140 @@ CREATE TABLE IF NOT EXISTS public.teams (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS (Row Level Security) and allow public read/write for attendance admins
+-- If table already exists from previous runs, ensure phone & classroom_id columns exist:
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'teams' AND column_name = 'classroom_id') THEN
+        ALTER TABLE public.teams ADD COLUMN classroom_id TEXT DEFAULT '401';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'teams' AND column_name = 'member_1_phone') THEN
+        ALTER TABLE public.teams ADD COLUMN member_1_phone TEXT DEFAULT '';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'teams' AND column_name = 'member_2_phone') THEN
+        ALTER TABLE public.teams ADD COLUMN member_2_phone TEXT DEFAULT '';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'teams' AND column_name = 'member_3_phone') THEN
+        ALTER TABLE public.teams ADD COLUMN member_3_phone TEXT DEFAULT '';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'teams' AND column_name = 'member_4_phone') THEN
+        ALTER TABLE public.teams ADD COLUMN member_4_phone TEXT DEFAULT '';
+    END IF;
+END $$;
+
+-- 3. Live Classroom Participant Status Table (Day-partitioned)
+CREATE TABLE IF NOT EXISTS public.classroom_presence (
+    id SERIAL PRIMARY KEY,
+    day_number INT NOT NULL DEFAULT 1, -- 1, 2, or 3
+    classroom_id TEXT NOT NULL,        -- '401' to '408'
+    team_name TEXT NOT NULL,
+    participant_name TEXT NOT NULL,
+    phone_number TEXT DEFAULT '',
+    is_team_lead BOOLEAN DEFAULT FALSE,
+    is_in_room BOOLEAN DEFAULT TRUE,   -- TRUE = IN (Green), FALSE = OUT (Red)
+    last_toggle_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_by TEXT DEFAULT 'coordinator'
+);
+
+-- Index for fast lookup by room and day
+CREATE INDEX IF NOT EXISTS idx_classroom_presence_room_day 
+ON public.classroom_presence (classroom_id, day_number);
+
+-- 4. Classroom Bulk Action Logs & Timestamp Timeline
+CREATE TABLE IF NOT EXISTS public.classroom_action_logs (
+    id SERIAL PRIMARY KEY,
+    day_number INT NOT NULL DEFAULT 1,
+    classroom_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,          -- 'Breakfast', 'Lunch', 'Dinner', 'Snack Break', 'Event', or custom
+    executed_by TEXT DEFAULT 'coordinator',
+    affected_count INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. Broadcast Notices & Announcements
+CREATE TABLE IF NOT EXISTS public.notices (
+    id SERIAL PRIMARY KEY,
+    target_room TEXT NOT NULL,          -- 'ALL' or specific room ('401', '402', etc.)
+    message TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 6. Coordinator Emergency Pings (SOS System)
+CREATE TABLE IF NOT EXISTS public.coordinator_pings (
+    id SERIAL PRIMARY KEY,
+    classroom_id TEXT NOT NULL,
+    coordinator_name TEXT DEFAULT 'Room Coordinator',
+    message TEXT NOT NULL,
+    is_resolved BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 7. Global No-Code System Settings
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL
+);
+
+-- Seed Initial System Settings
+INSERT INTO public.system_settings (key, value) VALUES
+('current_day', '1'::jsonb),
+('day_turnover_time', '"00:00"'::jsonb),
+('quick_action_buttons', '["Breakfast", "Lunch", "Dinner", "Snack Break", "Event"]'::jsonb),
+('classroom_coordinators', '{"401": ["Alex Kumar", "Samarth V"], "402": ["John D", "Priya S"], "403": ["Kiran Rao", "Deepa M"], "404": ["Rohit Sharma", "Ananya K"], "405": ["Varun Reddy", "Sneha P"], "406": ["Tanvi Shah", "Nikhil G"], "407": ["Gautam N", "Meera R"], "408": ["Harish B", "Divya C"]}'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
+-- ==============================================================================
+-- Row Level Security (RLS) & Public Policies for Attendance Operations
+-- ==============================================================================
+ALTER TABLE public.card_passwords ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.classroom_presence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.classroom_action_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coordinator_pings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public read on teams" 
-ON public.teams FOR SELECT 
-USING (true);
+-- Drop existing policies if any to prevent conflicts when re-running
+DO $$
+BEGIN
+    DROP POLICY IF EXISTS "Allow public read/write on card_passwords" ON public.card_passwords;
+    DROP POLICY IF EXISTS "Allow public read/write on teams" ON public.teams;
+    DROP POLICY IF EXISTS "Allow public read/write on classroom_presence" ON public.classroom_presence;
+    DROP POLICY IF EXISTS "Allow public read/write on classroom_action_logs" ON public.classroom_action_logs;
+    DROP POLICY IF EXISTS "Allow public read/write on notices" ON public.notices;
+    DROP POLICY IF EXISTS "Allow public read/write on coordinator_pings" ON public.coordinator_pings;
+    DROP POLICY IF EXISTS "Allow public read/write on system_settings" ON public.system_settings;
+END $$;
 
-CREATE POLICY "Allow public insert on teams" 
-ON public.teams FOR INSERT 
-WITH CHECK (true);
+CREATE POLICY "Allow public read/write on card_passwords" ON public.card_passwords FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write on teams" ON public.teams FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write on classroom_presence" ON public.classroom_presence FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write on classroom_action_logs" ON public.classroom_action_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write on notices" ON public.notices FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write on coordinator_pings" ON public.coordinator_pings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write on system_settings" ON public.system_settings FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow public update on teams" 
-ON public.teams FOR UPDATE 
-USING (true);
-
--- 2. Enable Supabase Realtime Replication
-ALTER PUBLICATION supabase_realtime ADD TABLE public.teams;
-
--- 3. Seed Data (All 60 Teams from Shortlisted Candidates.xlsx)
-INSERT INTO public.teams (sl_no, team_name, member_1, member_2, member_3, member_4) VALUES
-(1, 'SAKSHI', 'Anagha BL', 'Khushi Agarwal', 'Subikshaa M', 'Varshini Murthy'),
-(2, 'APEX', 'Harini Krishna', 'Adhithya P', 'Jagath Suman', 'Darshan Darshan'),
-(3, 'KRISHNA', 'Mithil Sai', 'NANDAN S', 'Prerana S K', 'Afnan Zain'),
-(4, 'TETRAGRAM', 'vineet teli', 'Bhargavi HS', 'Vaibhavi B', 'Sai Samarth'),
-(5, 'THE DREAMER''S', 'M SURYAPRAKASH', 'Suhail M', 'Lakshmi sagar G', 'CHIRANTHAN M'),
-(6, 'ROBO GLADIATORS', 'N Sanjan Kumar', 'S R YASHWANTH', 'Gagan S', 'Karthik Gowda B C'),
-(7, 'Tech sooriyas', 'B SHARON ROSE', 'AKSHAYA M', 'JOSHITA S', ''),
-(8, 'THE PIXELS', 'Sneha M B', 'Smruthi D J', 'Suma M H', 'Suraksha H J'),
-(9, 'CYBER CREW', 'Navaneeth M', 'Lithesh B S', 'Deepak H K', 'Mohammed Rehaan C S'),
-(10, 'TECH VISIONS', 'P.MOHITHA SRIVALLI', 'SUCHITHRA S', 'VARSHITHA R S', 'P SHASHANK'),
-(11, 'Binary Bosses', 'T J Jnanendra Prasad', 'Tarun', 'Anusha P H', 'D B Chandan'),
-(12, 'InnoVerse', 'Siri S J', 'Supriya M J', 'Subhashini M A', 'Sneha R S'),
-(13, 'MAYA', 'Sharath K T', 'M S Shreyas Gowda', 'Sumukh H S', 'Vishal J R'),
-(14, 'VIBE CREW', 'Syed Aman', 'K U Preetham Gowda', 'B S Preetham', 'Pramod M N'),
-(15, 'SURA', 'U V TEJAS', 'V N MANU', 'S SUHAS', 'C S YASHWANTH'),
-(16, 'PRAYAAS', 'L M LIKITH GOWDA', 'M S MOULYA', 'PRATHAM B B', 'M HARSHITHA'),
-(17, 'AGNI', 'P R RAKSHITH', 'SHREENIVAS H M', 'LAKSHITHA K R', 'SAMRUDDHI C H'),
-(18, 'SHIVAM', 'Yashas M', 'Sudeep S', 'Thippesh T H', 'Subramanya S'),
-(19, 'SQUAD SHIELDS', 'U N MANJU SWAROOP', 'GAGAN P', 'KEERTHI PRASAD D S', 'M C MANOJ'),
-(20, 'TECH MONKS', 'Chandankumar C M', 'Kushal gowda A G', 'Deepak R', 'Manoj L C'),
-(21, 'CODECRAFT', 'G Y SHASHANK GOWDA', 'H R SHANKARA GOWDA', 'G N SATHVIK', 'G M BHARATH'),
-(22, 'PRABHA', 'A M YASHASWINI', 'PRIYANKA B A', 'P BHARGAVI', 'N LIKHITHA'),
-(23, 'CODE HEIST', 'Y B Harshini', 'H C Nisarga', 'M Sinchana', 'Anushree S D'),
-(24, 'RUDRA', 'Subhash Gowda A K', 'Prarthan A', 'T D Nithesh', 'Charan P S'),
-(25, 'SPARK NEXUS', 'Spoorthi T', 'Thilaka S M', 'Tejaswini M V', 'Yashaswini B N'),
-(26, 'S T B', 'A C Shashi Kumar', 'G H Likith Kumar', 'J H Manoj', 'M Darshan'),
-(27, 'Dynamic Developers', 'Thanushree C R', 'G S Sinchana', 'Y S Spoorthi', 'Tejaswini M S'),
-(28, 'Dev Dynamics', 'Pratham P G', 'M Sukruth', 'D R Prajwal', 'Prajwal K M'),
-(29, 'ASTRA', 'B S Monisha', 'N J Namratha', 'M Sinchana', 'P R Pragathi'),
-(30, 'SPARK AI', 'B S Manoj', 'K M Pavan Gowda', 'S K Mohith Gowda', 'G Gagan'),
-(31, 'BRAIN SPARK', 'Subhash B E', 'Vikas R', 'S G Shreyas', 'B V Yashavanth'),
-(32, 'INNOVATORS', 'Harshitha M J', 'Nanditha S M', 'Inchara N M', 'B P Prarthana'),
-(33, 'THE BUG CRUSHERS', 'Tejas G S', 'Vikhyath A N', 'Varun H', 'Vinay Kumar H N'),
-(34, 'CODE BLOOM', 'R G SAHANA', 'SUCHIN S', 'M C SUSHMA', 'SUHAS H B'),
-(35, 'CODE CRAFTERS', 'SAHANA M S', 'VARSHINI S A', 'ROJA H N', 'S CHANDANA'),
-(36, 'NEXUS', 'Shreya P B', 'Thanusha Y M', 'Sinchan N J', 'Tanuja P S'),
-(37, 'Byte Busters', 'S S Bhuvan', 'M Prajwal', 'Syed Khaja Mohiuddin', 'C L Pratham Gowda'),
-(38, 'Innovate-X', 'Preetham D C', 'U T Tejas', 'Rahul D R', 'P B Puneeth'),
-(39, 'ALPHA CODE', 'Chandana S R', 'Anuradha P A', 'Bhoomika M R', 'Archana S S'),
-(40, 'TECH TROOPERS', 'N R BHOOMIKA', 'K N NAVYA', 'S DEEPIKA', 'C H SPOORTHI'),
-(41, 'BYTE BRIDGE', 'Preetham K N', 'G N Manoj', 'Prasiddhi N K', 'L M Likhitha'),
-(42, 'TECH WHIZ', 'N P Chandan', 'I A Yashas', 'Monika S G', 'Varshitha M D'),
-(43, 'CYBER SAMURAI', 'Syed Furqan', 'Sharath K C', 'Umar Farooq J S', 'Sheelan D A'),
-(44, 'SPARK CODERS', 'Anupama G S', 'Harshitha K', 'Keerthana M S', 'Amulya N V'),
-(45, 'Dev dynamos', 'H S Sharanya', 'M S Sinchana', 'Preethu M B', 'Spandana L G'),
-(46, 'TEAM SPARK', 'M SHARATH GOWDA', 'M HARSHITHA', 'PRANATHI K A', 'M S SUJAN'),
-(47, 'DATA NINJAS', 'B Monish', 'S Chirag', 'Gagan R', 'M Punith Gowda'),
-(48, 'S S M L', 'S M Likitha', 'Spoorthi M', 'Subiksha R', 'S P Meghana'),
-(49, 'Team Alpha', 'R R Gagana', 'M O Gagana', 'T N Sinchana', 'Deepika C R'),
-(50, 'Neural Nexus', 'B S Sanjana', 'Y L Thanmayi', 'T N Varshitha', 'B J Spoorthi'),
-(51, 'Web Weaver', 'R S Vinay Gowda', 'B S Tejas', 'Y S Tharun', 'L V Yashas Gowda'),
-(52, 'Algorithm Avengers', 'VARUN D R', 'M N YASHVANTH', 'S SINCHANA', 'D M SINCHANA'),
-(53, 'VISIONARY TECH', 'Y S YASHWANTH GOWDA', 'U R CHETHAN', 'S CHETHAN', 'THIPPESH S C'),
-(54, 'MAVERICKS', 'U J Likitha', 'Subash K C', 'Subramanya B L', ''),
-(55, 'SYNERGY', 'V P Chandan Gowda', 'B S Tharanath', 'Chiranjeevi S M', 'Chetan M R'),
-(56, 'VYOMA', 'Ruchitha Niradi', 'Vanishree Umar Ji', 'Sakshi Ramaka', 'Sachi Hongal'),
-(57, 'QuardraAI', 'Meghana M', 'BhanuPriya V', 'Dheeraj R S', 'Manoj M'),
-(58, 'SUPREME', 'Sandhya Reddy', 'Syed Imadulla', 'Thriveni S A', 'Teja J'),
-(59, 'TEAM VIKRANT', 'Rishika Dollin', 'Rishabh S K', '', ''),
-(60, 'TICKET', 'Saishree Anil', 'Achutha Kaddi', 'Kriishna H S', 'Bhuvan')
-ON CONFLICT (sl_no) DO UPDATE SET 
-  team_name = EXCLUDED.team_name, 
-  member_1 = EXCLUDED.member_1, 
-  member_2 = EXCLUDED.member_2, 
-  member_3 = EXCLUDED.member_3, 
-  member_4 = EXCLUDED.member_4;
+-- Enable Realtime for All Essential Tables (Idempotent Exception Handling)
+DO $$
+BEGIN
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.teams;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.classroom_presence;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.notices;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.coordinator_pings;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.system_settings;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+END $$;

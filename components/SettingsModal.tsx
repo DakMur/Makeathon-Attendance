@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Check, User, CheckCheck } from 'lucide-react';
+import { X, Check, User, Phone, CheckCheck, Building2 } from 'lucide-react';
 import { Team } from '@/lib/types';
 
 interface SettingsModalProps {
@@ -20,20 +20,30 @@ export function SettingsModal({
   onMarkTeamDayPresent,
 }: SettingsModalProps) {
   const [teamName, setTeamName] = useState('');
+  const [classroomId, setClassroomId] = useState('401');
   const [m1, setM1] = useState('');
+  const [m1Phone, setM1Phone] = useState('');
   const [m2, setM2] = useState('');
+  const [m2Phone, setM2Phone] = useState('');
   const [m3, setM3] = useState('');
+  const [m3Phone, setM3Phone] = useState('');
   const [m4, setM4] = useState('');
+  const [m4Phone, setM4Phone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [markedNotification, setMarkedNotification] = useState<string | null>(null);
 
   useEffect(() => {
     if (team) {
       setTeamName(team.team_name || '');
+      setClassroomId(team.classroom_id || '401');
       setM1(team.member_1 || '');
+      setM1Phone(team.member_1_phone || '');
       setM2(team.member_2 || '');
+      setM2Phone(team.member_2_phone || '');
       setM3(team.member_3 || '');
+      setM3Phone(team.member_3_phone || '');
       setM4(team.member_4 || '');
+      setM4Phone(team.member_4_phone || '');
     }
   }, [team]);
 
@@ -57,10 +67,15 @@ export function SettingsModal({
       await onSave({
         ...team,
         team_name: teamName.trim(),
+        classroom_id: classroomId,
         member_1: m1.trim(),
+        member_1_phone: m1Phone.trim(),
         member_2: m2.trim(),
+        member_2_phone: m2Phone.trim(),
         member_3: m3.trim(),
+        member_3_phone: m3Phone.trim(),
         member_4: m4.trim(),
+        member_4_phone: m4Phone.trim(),
       });
       onClose();
     } finally {
@@ -81,7 +96,7 @@ export function SettingsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="w-full max-w-lg bg-white dark:bg-[#09090b] border border-zinc-200 dark:border-[#27272a] shadow-2xl rounded-none text-zinc-900 dark:text-white font-sans overflow-hidden"
+        className="w-full max-w-lg bg-white dark:bg-[#09090b] border border-zinc-200 dark:border-[#27272a] shadow-2xl rounded-none text-zinc-900 dark:text-white font-sans overflow-hidden max-h-[90vh] flex flex-col"
         role="dialog"
         aria-modal="true"
       >
@@ -97,7 +112,7 @@ export function SettingsModal({
               </h2>
             </div>
             <p className="text-xs text-zinc-500 dark:text-[#71717a] mt-0.5">
-              Edit team details and roster ({activeMembersCount}/4 members)
+              Edit team details, phone numbers, and classroom ({activeMembersCount}/4 members)
             </p>
           </div>
           <button
@@ -110,84 +125,156 @@ export function SettingsModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-mono text-zinc-600 dark:text-[#a1a1aa] mb-1.5 uppercase tracking-wider">
-              Team Name
-            </label>
-            <input
-              type="text"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] focus:border-zinc-900 dark:focus:border-white focus:outline-hidden px-3 py-2 text-xs font-mono text-zinc-900 dark:text-white transition-colors"
-              placeholder="e.g. SAKSHI"
-              required
-            />
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-mono text-zinc-600 dark:text-[#a1a1aa] mb-1.5 uppercase tracking-wider">
+                Team Name
+              </label>
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                className="w-full bg-zinc-50 dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] focus:border-zinc-900 dark:focus:border-white focus:outline-hidden px-3 py-1.5 text-xs font-mono text-zinc-900 dark:text-white transition-colors"
+                placeholder="e.g. SAKSHI"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-zinc-600 dark:text-[#a1a1aa] mb-1.5 uppercase tracking-wider">
+                Classroom
+              </label>
+              <select
+                value={classroomId}
+                onChange={(e) => setClassroomId(e.target.value)}
+                className="w-full bg-zinc-50 dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] focus:border-zinc-900 dark:focus:border-white focus:outline-hidden px-2 py-1.5 text-xs font-mono text-zinc-900 dark:text-white transition-colors"
+              >
+                {['401', '402', '403', '404', '405', '406', '407', '408'].map((r) => (
+                  <option key={r} value={r}>Room {r}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-3 pt-2">
             <label className="block text-xs font-mono text-zinc-600 dark:text-[#a1a1aa] uppercase tracking-wider">
-              Roster / Members
+              Roster & Phone Numbers
             </label>
 
             {/* Member 1 */}
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <User className="w-3 h-3 text-zinc-400 dark:text-[#71717a]" />
-                <span className="text-[11px] font-mono text-zinc-500 dark:text-[#71717a]">Member 1 (Leader / Primary)</span>
+            <div className="p-2.5 rounded border border-zinc-200 dark:border-[#27272a] bg-zinc-50/50 dark:bg-[#121215]">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <User className="w-3 h-3 text-blue-500" />
+                <span className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 font-semibold">
+                  Member 1 (Team Leader)
+                </span>
               </div>
-              <input
-                type="text"
-                value={m1}
-                onChange={(e) => setM1(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] focus:border-zinc-900 dark:focus:border-white focus:outline-hidden px-3 py-1.5 text-xs text-zinc-900 dark:text-white transition-colors"
-                placeholder="Member 1 Full Name"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={m1}
+                  onChange={(e) => setM1(e.target.value)}
+                  className="bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] px-2.5 py-1 text-xs text-zinc-900 dark:text-white"
+                  placeholder="Leader Name"
+                />
+                <div className="relative">
+                  <Phone className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={m1Phone}
+                    onChange={(e) => setM1Phone(e.target.value)}
+                    className="w-full pl-6 pr-2 py-1 text-xs font-mono bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] text-zinc-900 dark:text-white"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Member 2 */}
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <User className="w-3 h-3 text-zinc-400 dark:text-[#71717a]" />
-                <span className="text-[11px] font-mono text-zinc-500 dark:text-[#71717a]">Member 2</span>
+            <div className="p-2.5 rounded border border-zinc-200 dark:border-[#27272a] bg-zinc-50/50 dark:bg-[#121215]">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <User className="w-3 h-3 text-zinc-400" />
+                <span className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300">
+                  Member 2
+                </span>
               </div>
-              <input
-                type="text"
-                value={m2}
-                onChange={(e) => setM2(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] focus:border-zinc-900 dark:focus:border-white focus:outline-hidden px-3 py-1.5 text-xs text-zinc-900 dark:text-white transition-colors"
-                placeholder="Member 2 Full Name"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={m2}
+                  onChange={(e) => setM2(e.target.value)}
+                  className="bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] px-2.5 py-1 text-xs text-zinc-900 dark:text-white"
+                  placeholder="Member 2 Name"
+                />
+                <div className="relative">
+                  <Phone className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={m2Phone}
+                    onChange={(e) => setM2Phone(e.target.value)}
+                    className="w-full pl-6 pr-2 py-1 text-xs font-mono bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] text-zinc-900 dark:text-white"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Member 3 */}
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <User className="w-3 h-3 text-zinc-400 dark:text-[#71717a]" />
-                <span className="text-[11px] font-mono text-zinc-500 dark:text-[#71717a]">Member 3</span>
+            <div className="p-2.5 rounded border border-zinc-200 dark:border-[#27272a] bg-zinc-50/50 dark:bg-[#121215]">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <User className="w-3 h-3 text-zinc-400" />
+                <span className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300">
+                  Member 3
+                </span>
               </div>
-              <input
-                type="text"
-                value={m3}
-                onChange={(e) => setM3(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] focus:border-zinc-900 dark:focus:border-white focus:outline-hidden px-3 py-1.5 text-xs text-zinc-900 dark:text-white transition-colors"
-                placeholder="Leave blank if 2-member team"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={m3}
+                  onChange={(e) => setM3(e.target.value)}
+                  className="bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] px-2.5 py-1 text-xs text-zinc-900 dark:text-white"
+                  placeholder="Leave blank if 2-member team"
+                />
+                <div className="relative">
+                  <Phone className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={m3Phone}
+                    onChange={(e) => setM3Phone(e.target.value)}
+                    className="w-full pl-6 pr-2 py-1 text-xs font-mono bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] text-zinc-900 dark:text-white"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Member 4 */}
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <User className="w-3 h-3 text-zinc-400 dark:text-[#71717a]" />
-                <span className="text-[11px] font-mono text-zinc-500 dark:text-[#71717a]">Member 4</span>
+            <div className="p-2.5 rounded border border-zinc-200 dark:border-[#27272a] bg-zinc-50/50 dark:bg-[#121215]">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <User className="w-3 h-3 text-zinc-400" />
+                <span className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300">
+                  Member 4
+                </span>
               </div>
-              <input
-                type="text"
-                value={m4}
-                onChange={(e) => setM4(e.target.value)}
-                className="w-full bg-zinc-50 dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] focus:border-zinc-900 dark:focus:border-white focus:outline-hidden px-3 py-1.5 text-xs text-zinc-900 dark:text-white transition-colors"
-                placeholder="Leave blank if 3-member team"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={m4}
+                  onChange={(e) => setM4(e.target.value)}
+                  className="bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] px-2.5 py-1 text-xs text-zinc-900 dark:text-white"
+                  placeholder="Leave blank if 3-member team"
+                />
+                <div className="relative">
+                  <Phone className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={m4Phone}
+                    onChange={(e) => setM4Phone(e.target.value)}
+                    className="w-full pl-6 pr-2 py-1 text-xs font-mono bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-[#27272a] text-zinc-900 dark:text-white"
+                    placeholder="Phone number"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

@@ -454,32 +454,44 @@ export function AttendanceGrid({
                 </td>
 
                 {/* 4. MEMBER 1 */}
-                <td className="px-3 py-2 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
-                  {team.member_1 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">None</span>}
+                <td className="px-3 py-1.5 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
+                  <div className="font-medium truncate">{team.member_1 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">None</span>}</div>
+                  {team.member_1_phone && (
+                    <div className="text-[10px] font-mono text-zinc-500 truncate">{team.member_1_phone}</div>
+                  )}
                 </td>
                 {renderAttendanceCell(team, 1, 'member_1', 'member_1_oct7', 1)}
                 {renderAttendanceCell(team, 1, 'member_1', 'member_1_oct8', 2)}
                 {renderAttendanceCell(team, 1, 'member_1', 'member_1_oct9', 3)}
 
                 {/* 5. MEMBER 2 */}
-                <td className="px-3 py-2 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
-                  {team.member_2 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">None</span>}
+                <td className="px-3 py-1.5 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
+                  <div className="font-medium truncate">{team.member_2 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">None</span>}</div>
+                  {team.member_2_phone && (
+                    <div className="text-[10px] font-mono text-zinc-500 truncate">{team.member_2_phone}</div>
+                  )}
                 </td>
                 {renderAttendanceCell(team, 2, 'member_2', 'member_2_oct7', 4)}
                 {renderAttendanceCell(team, 2, 'member_2', 'member_2_oct8', 5)}
                 {renderAttendanceCell(team, 2, 'member_2', 'member_2_oct9', 6)}
 
                 {/* 6. MEMBER 3 */}
-                <td className="px-3 py-2 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
-                  {team.member_3 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">—</span>}
+                <td className="px-3 py-1.5 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
+                  <div className="font-medium truncate">{team.member_3 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">—</span>}</div>
+                  {team.member_3_phone && (
+                    <div className="text-[10px] font-mono text-zinc-500 truncate">{team.member_3_phone}</div>
+                  )}
                 </td>
                 {renderAttendanceCell(team, 3, 'member_3', 'member_3_oct7', 7)}
                 {renderAttendanceCell(team, 3, 'member_3', 'member_3_oct8', 8)}
                 {renderAttendanceCell(team, 3, 'member_3', 'member_3_oct9', 9)}
 
                 {/* 7. MEMBER 4 */}
-                <td className="px-3 py-2 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
-                  {team.member_4 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">—</span>}
+                <td className="px-3 py-1.5 text-xs border-r border-zinc-200 dark:border-[#27272a] text-zinc-800 dark:text-[#d4d4d8] truncate max-w-[144px]">
+                  <div className="font-medium truncate">{team.member_4 || <span className="text-zinc-400 dark:text-[#3f3f46] italic">—</span>}</div>
+                  {team.member_4_phone && (
+                    <div className="text-[10px] font-mono text-zinc-500 truncate">{team.member_4_phone}</div>
+                  )}
                 </td>
                 {renderAttendanceCell(team, 4, 'member_4', 'member_4_oct7', 10)}
                 {renderAttendanceCell(team, 4, 'member_4', 'member_4_oct8', 11)}
