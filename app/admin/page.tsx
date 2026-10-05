@@ -22,11 +22,15 @@ import {
   RefreshCw,
   Bell,
   Sparkles,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from 'lucide-react';
 import { PasswordModal } from '@/components/PasswordModal';
 import { AdminMonitorGrid } from '@/components/AdminMonitorGrid';
 import { NoticeBroadcaster } from '@/components/NoticeBroadcaster';
 import { CsvExporter } from '@/components/CsvExporter';
+import { RosterManager } from '@/components/RosterManager';
 import {
   getSystemSettings,
   updateSystemSetting,
@@ -56,7 +60,7 @@ export default function AdminCommandCenterPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   // Active Tab: 'monitor' | 'notices' | 'config' | 'audit'
-  const [activeTab, setActiveTab] = useState<'monitor' | 'notices' | 'config' | 'audit'>('monitor');
+  const [activeTab, setActiveTab] = useState<'monitor' | 'notices' | 'config' | 'audit' | 'roster'>('monitor');
 
   // Data states
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
@@ -73,6 +77,7 @@ export default function AdminCommandCenterPage() {
   const [newButtonName, setNewButtonName] = useState('');
   const [editingCoordinators, setEditingCoordinators] = useState<Record<string, string>>({});
   const [newPasswordInputs, setNewPasswordInputs] = useState<Record<string, string>>({});
+  const [showPasswordVisibility, setShowPasswordVisibility] = useState<Record<string, boolean>>({});
   const [configFeedback, setConfigFeedback] = useState<string | null>(null);
   const [logFilterRoom, setLogFilterRoom] = useState<string>('ALL');
 
@@ -422,6 +427,19 @@ export default function AdminCommandCenterPage() {
             <History className="w-3.5 h-3.5" />
             <span>Tab 4: Master Timeline & Audit</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('roster')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-mono font-medium transition-all ${
+              activeTab === 'roster'
+                ? 'bg-violet-600 text-white shadow-xs font-bold'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Tab 5: Roster Management</span>
+          </button>
         </div>
       </div>
 
@@ -606,35 +624,55 @@ export default function AdminCommandCenterPage() {
                     (cardId) => (
                       <div
                         key={cardId}
-                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-900/60 border border-zinc-800"
+                        className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800"
                       >
-                        <div className="w-24 shrink-0">
-                          <span className="text-xs font-mono font-bold text-white uppercase">
+                        <div className="w-28 shrink-0">
+                          <span className="text-xs font-mono font-bold text-white uppercase flex items-center gap-1.5">
                             {cardId}
                           </span>
-                          <span className="block text-[10px] font-mono text-zinc-500">
-                            Current: {passwords[cardId] || '••••'}
+                          <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400 mt-0.5">
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            <span>Protected</span>
                           </span>
                         </div>
 
-                        <input
-                          type="text"
-                          value={newPasswordInputs[cardId] || ''}
-                          onChange={(e) =>
-                            setNewPasswordInputs((prev) => ({
-                              ...prev,
-                              [cardId]: e.target.value,
-                            }))
-                          }
-                          placeholder="Set new passcode..."
-                          className="flex-1 px-2.5 py-1 text-xs font-mono bg-zinc-950 border border-zinc-800 rounded text-white placeholder-zinc-600 focus:outline-hidden focus:border-amber-500"
-                        />
+                        <div className="flex-1 relative flex items-center">
+                          <input
+                            type={showPasswordVisibility[cardId] ? 'text' : 'password'}
+                            value={newPasswordInputs[cardId] || ''}
+                            onChange={(e) =>
+                              setNewPasswordInputs((prev) => ({
+                                ...prev,
+                                [cardId]: e.target.value,
+                              }))
+                            }
+                            placeholder="Set new passcode..."
+                            className="w-full pr-8 px-2.5 py-1 text-xs font-mono bg-zinc-950 border border-zinc-800 rounded text-white placeholder-zinc-600 focus:outline-hidden focus:border-amber-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowPasswordVisibility((prev) => ({
+                                ...prev,
+                                [cardId]: !prev[cardId],
+                              }))
+                            }
+                            className="absolute right-2 text-zinc-500 hover:text-zinc-300 p-0.5"
+                            title={showPasswordVisibility[cardId] ? 'Hide' : 'Show'}
+                          >
+                            {showPasswordVisibility[cardId] ? (
+                              <EyeOff className="w-3.5 h-3.5" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
 
                         <button
                           type="button"
                           onClick={() => handleUpdatePassword(cardId)}
                           disabled={!newPasswordInputs[cardId]?.trim()}
-                          className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-mono font-medium disabled:opacity-30 transition-colors"
+                          className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-mono font-medium disabled:opacity-30 transition-colors shrink-0"
                         >
                           Update
                         </button>
@@ -777,6 +815,13 @@ export default function AdminCommandCenterPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 5: ROSTER MANAGEMENT (Classrooms, Teams, Participants)               */}
+        {/* ========================================================================= */}
+        {activeTab === 'roster' && (
+          <RosterManager />
         )}
       </main>
     </div>

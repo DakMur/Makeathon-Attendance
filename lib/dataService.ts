@@ -9,7 +9,6 @@ import {
   SystemSettings,
 } from './types';
 import {
-  DEFAULT_PASSWORDS,
   DEFAULT_COORDINATORS,
   DEFAULT_QUICK_ACTIONS,
   INITIAL_TEAMS,
@@ -18,13 +17,13 @@ import {
 
 // Storage keys for local fallback
 const STORAGE_KEYS = {
-  PASSWORDS: 'makeathon_card_passwords',
   SETTINGS: 'makeathon_system_settings',
   PRESENCE: 'makeathon_classroom_presence',
   ACTION_LOGS: 'makeathon_action_logs',
   NOTICES: 'makeathon_notices',
   PINGS: 'makeathon_coordinator_pings',
   TEAMS: 'makeathon_teams_data',
+  CLASSROOMS: 'makeathon_classrooms',
 };
 
 // Default system settings
@@ -59,85 +58,61 @@ function setLocalItem<T>(key: string, value: T): void {
 }
 
 // -----------------------------------------------------------------------------
-// 1. CARD PASSWORDS & ROUTE GUARD
+// 1. CARD PASSWORDS & ROUTE GUARD (Server-Verified)
 // -----------------------------------------------------------------------------
 export async function verifyCardPassword(cardId: string, inputPasscode: string): Promise<boolean> {
   const trimmed = inputPasscode.trim();
+  if (!trimmed) return false;
 
-  // Try Supabase first
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('card_passwords')
-        .select('password_hash')
-        .eq('card_id', cardId)
-        .maybeSingle();
+  try {
+    const res = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId, passcode: trimmed }),
+    });
 
-      if (!error && data && data.password_hash) {
-        return data.password_hash === trimmed;
-      }
-    } catch (e) {
-      console.warn('Supabase password check fallback to local:', e);
+    if (res.ok) {
+      const data = await res.json();
+      return Boolean(data.success);
     }
+  } catch (e) {
+    console.warn('API verification error:', e);
   }
 
-  // Fallback to local storage or defaults
-  const localPasswords = getLocalItem<Record<string, string>>(STORAGE_KEYS.PASSWORDS, DEFAULT_PASSWORDS);
-  const expected = localPasswords[cardId] || DEFAULT_PASSWORDS[cardId];
-  return expected === trimmed;
+  return false;
 }
 
 export async function updateCardPassword(cardId: string, newPasscode: string): Promise<boolean> {
   const trimmed = newPasscode.trim();
+  if (!trimmed) return false;
 
-  // Update locally first
-  const localPasswords = getLocalItem<Record<string, string>>(STORAGE_KEYS.PASSWORDS, DEFAULT_PASSWORDS);
-  localPasswords[cardId] = trimmed;
-  setLocalItem(STORAGE_KEYS.PASSWORDS, localPasswords);
+  try {
+    const res = await fetch('/api/auth/update-passcode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId, newPasscode: trimmed }),
+    });
 
-  // Sync to Supabase
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { error } = await supabase.from('card_passwords').upsert(
-        {
-          card_id: cardId,
-          password_hash: trimmed,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'card_id' }
-      );
-      if (error) console.warn('Supabase password upsert error:', error);
-      return !error;
-    } catch (e) {
-      console.warn('Supabase password update failed:', e);
+    if (res.ok) {
+      const data = await res.json();
+      return Boolean(data.success);
     }
+  } catch (e) {
+    console.warn('API password update error:', e);
   }
 
-  return true;
+  return false;
 }
 
 export async function getAllCardPasswords(): Promise<Record<string, string>> {
-  const localPasswords = getLocalItem<Record<string, string>>(STORAGE_KEYS.PASSWORDS, DEFAULT_PASSWORDS);
-
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase.from('card_passwords').select('card_id, password_hash');
-      if (!error && data && data.length > 0) {
-        const merged: Record<string, string> = { ...DEFAULT_PASSWORDS, ...localPasswords };
-        data.forEach((row) => {
-          if (row.card_id && row.password_hash) {
-            merged[row.card_id] = row.password_hash;
-          }
-        });
-        setLocalItem(STORAGE_KEYS.PASSWORDS, merged);
-        return merged;
-      }
-    } catch (e) {
-      console.warn('Supabase fetch passwords error:', e);
-    }
-  }
-
-  return { ...DEFAULT_PASSWORDS, ...localPasswords };
+  // Never expose plaintext passwords to the client browser.
+  // Returns a masked indicator for configured cards.
+  const cards = ['admin', 'checkin', '401', '402', '403', '404', '405', '406', '407', '408'];
+  const masked: Record<string, string> = {};
+  cards.forEach((c) => {
+    masked[c] = '••••••••';
+  });
+  return masked;
 }
 
 // -----------------------------------------------------------------------------
@@ -627,3 +602,153 @@ export async function resolveCoordinatorPing(id: number): Promise<boolean> {
   }
   return true;
 }
+
+// =============================================================================
+// 7. CLASSROOM ROSTER MANAGEMENT (Add / Remove / Rename)
+// =============================================================================
+
+const DEFAULT_CLASSROOMS = ['401', '402', '403', '404', '405', '406', '407', '408'];
+
+export async function getClassrooms(): Promise<string[]> {
+  const local = getLocalItem<string[]>(STORAGE_KEYS.CLASSROOMS, DEFAULT_CLASSROOMS);
+  return local;
+}
+
+export async function addClassroom(roomId: string): Promise<boolean> {
+  const trimmed = roomId.trim().toUpperCase();
+  if (!trimmed) return false;
+  const current = getLocalItem<string[]>(STORAGE_KEYS.CLASSROOMS, DEFAULT_CLASSROOMS);
+  if (current.includes(trimmed)) return false; // already exists
+  const updated = [...current, trimmed].sort();
+  setLocalItem(STORAGE_KEYS.CLASSROOMS, updated);
+  return true;
+}
+
+export async function removeClassroom(roomId: string): Promise<boolean> {
+  const current = getLocalItem<string[]>(STORAGE_KEYS.CLASSROOMS, DEFAULT_CLASSROOMS);
+  const updated = current.filter((r) => r !== roomId);
+  setLocalItem(STORAGE_KEYS.CLASSROOMS, updated);
+  // Also remove presence entries for this room from local cache
+  const presence = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+  setLocalItem(STORAGE_KEYS.PRESENCE, presence.filter((p) => p.classroom_id !== roomId));
+  return true;
+}
+
+// =============================================================================
+// 8. TEAM MANAGEMENT (Add / Remove / Update)
+// =============================================================================
+
+export function getTeams(): Team[] {
+  return getLocalItem<Team[]>(STORAGE_KEYS.TEAMS, INITIAL_TEAMS);
+}
+
+export function saveTeams(teams: Team[]): void {
+  setLocalItem(STORAGE_KEYS.TEAMS, teams);
+}
+
+export function addTeam(team: Omit<Team, 'id'>): Team {
+  const all = getTeams();
+  const newId = Math.max(0, ...all.map((t) => t.id)) + 1;
+  const newTeam: Team = { ...team, id: newId };
+  saveTeams([...all, newTeam]);
+  return newTeam;
+}
+
+export function updateTeam(teamId: number, updates: Partial<Team>): boolean {
+  const all = getTeams();
+  const idx = all.findIndex((t) => t.id === teamId);
+  if (idx === -1) return false;
+  all[idx] = { ...all[idx], ...updates };
+  saveTeams(all);
+  return true;
+}
+
+export function removeTeam(teamId: number): boolean {
+  const all = getTeams();
+  const filtered = all.filter((t) => t.id !== teamId);
+  if (filtered.length === all.length) return false;
+  saveTeams(filtered);
+  // Also remove presence entries for this team from local cache
+  const team = all.find((t) => t.id === teamId);
+  if (team) {
+    const presence = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+    setLocalItem(
+      STORAGE_KEYS.PRESENCE,
+      presence.filter((p) => p.team_name !== team.team_name)
+    );
+  }
+  return true;
+}
+
+// =============================================================================
+// 9. PARTICIPANT MANAGEMENT (Add / Remove participant from team)
+// =============================================================================
+
+export function addParticipantToTeam(
+  teamId: number,
+  slot: 1 | 2 | 3 | 4,
+  name: string,
+  phone: string = ''
+): boolean {
+  const all = getTeams();
+  const idx = all.findIndex((t) => t.id === teamId);
+  if (idx === -1) return false;
+  const team = all[idx];
+  const nameKey = `member_${slot}` as keyof Team;
+  const phoneKey = `member_${slot}_phone` as keyof Team;
+  // @ts-ignore – dynamic key assignment
+  all[idx] = { ...team, [nameKey]: name.trim(), [phoneKey]: phone.trim() };
+  saveTeams(all);
+
+  // Sync presence entry if participant is new
+  if (name.trim()) {
+    const presence = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+    const alreadyExists = presence.some(
+      (p) => p.team_name === team.team_name && p.participant_name.toLowerCase() === name.trim().toLowerCase()
+    );
+    if (!alreadyExists) {
+      presence.push({
+        day_number: 1,
+        classroom_id: team.classroom_id || '401',
+        team_name: team.team_name,
+        participant_name: name.trim(),
+        phone_number: phone.trim(),
+        is_team_lead: slot === 1,
+        is_in_room: true,
+        last_toggle_time: new Date().toISOString(),
+        updated_by: 'admin',
+      });
+      setLocalItem(STORAGE_KEYS.PRESENCE, presence);
+    }
+  }
+  return true;
+}
+
+export function removeParticipantFromTeam(teamId: number, slot: 1 | 2 | 3 | 4): boolean {
+  const all = getTeams();
+  const idx = all.findIndex((t) => t.id === teamId);
+  if (idx === -1) return false;
+  const team = all[idx];
+  const nameKey = `member_${slot}` as keyof Team;
+  const phoneKey = `member_${slot}_phone` as keyof Team;
+  const oldName = team[nameKey] as string;
+
+  // @ts-ignore – dynamic key clearing
+  all[idx] = { ...team, [nameKey]: '', [phoneKey]: '' };
+  saveTeams(all);
+
+  // Remove from presence cache
+  if (oldName && oldName.trim()) {
+    const presence = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+    setLocalItem(
+      STORAGE_KEYS.PRESENCE,
+      presence.filter(
+        (p) =>
+          !(p.team_name === team.team_name &&
+            p.participant_name.toLowerCase() === oldName.trim().toLowerCase())
+      )
+    );
+  }
+  return true;
+}
+

@@ -3,11 +3,31 @@
 -- ==============================================================================
 
 -- 1. Card Access Passwords Table
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS public.card_passwords (
     card_id TEXT PRIMARY KEY, -- 'admin', 'checkin', '401'..'408'
     password_hash TEXT NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Secure RPC function: validates input against stored hash/passcode and returns boolean only
+CREATE OR REPLACE FUNCTION public.verify_card_passcode(p_card_id TEXT, p_passcode TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_stored TEXT;
+BEGIN
+    SELECT password_hash INTO v_stored FROM public.card_passwords WHERE card_id = p_card_id;
+    IF v_stored IS NULL THEN
+        RETURN FALSE;
+    END IF;
+    -- Matches either direct passcode or SHA-256 hash
+    RETURN (v_stored = p_passcode OR v_stored = encode(digest(p_passcode, 'sha256'), 'hex'));
+END;
+$$;
 
 -- Seed Default Passwords
 INSERT INTO public.card_passwords (card_id, password_hash) VALUES

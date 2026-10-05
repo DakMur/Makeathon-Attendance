@@ -387,7 +387,10 @@ export default function ViewportLandingPage() {
         <div className="flex items-center gap-2">
           <span>Makeathon Ops v2.4</span>
           <span>•</span>
-          <span className="text-zinc-400">Default Admin: mibomba</span>
+          <span className="text-emerald-500 flex items-center gap-1 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Security Guard Active
+          </span>
         </div>
         <div className="flex items-center gap-1 text-zinc-400">
           <span>Zero-Scroll Matrix</span>

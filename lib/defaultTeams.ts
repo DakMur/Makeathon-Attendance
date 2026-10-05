@@ -142,19 +142,6 @@ export function getInitialClassroomPresence(dayNumber: number = 1): ClassroomPre
   return presences;
 }
 
-export const DEFAULT_PASSWORDS: Record<string, string> = {
-  admin: 'mibomba',
-  checkin: 'checkin123',
-  '401': 'room401',
-  '402': 'room402',
-  '403': 'room403',
-  '404': 'room404',
-  '405': 'room405',
-  '406': 'room406',
-  '407': 'room407',
-  '408': 'room408',
-};
-
 export const DEFAULT_COORDINATORS: Record<string, string[]> = {
   '401': ['Alex Kumar', 'Samarth V'],
   '402': ['John D', 'Priya S'],
