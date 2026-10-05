@@ -25,6 +25,7 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 import { PasswordModal } from '@/components/PasswordModal';
 import { AdminMonitorGrid } from '@/components/AdminMonitorGrid';
@@ -84,7 +85,7 @@ export default function AdminCommandCenterPage() {
   // Verify auth on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isAuth = sessionStorage.getItem('auth_card_admin') === 'true';
+      const isAuth = localStorage.getItem('auth_card_admin') === 'true';
       if (isAuth) {
         setIsAuthenticated(true);
       } else {
@@ -249,6 +250,25 @@ export default function AdminCommandCenterPage() {
     }
   };
 
+  // Revoke all active coordinator sessions (forces re-auth on all devices)
+  const handleRevokeAllSessions = () => {
+    if (typeof window !== 'undefined') {
+      const cardIds = ['admin', 'checkin', '401', '402', '403', '404', '405', '406', '407', '408'];
+      cardIds.forEach((id) => localStorage.removeItem(`auth_card_${id}`));
+      // Re-grant admin's own session so they aren't kicked out
+      localStorage.setItem('auth_card_admin', 'true');
+      setConfigFeedback('All coordinator sessions revoked — they must re-authenticate on next visit.');
+      setTimeout(() => setConfigFeedback(null), 4000);
+    }
+  };
+
+  const handleAdminSignOut = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_card_admin');
+    }
+    router.push('/');
+  };
+
   if (isAuthenticated === false) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
@@ -322,6 +342,14 @@ export default function AdminCommandCenterPage() {
               title="Refresh Telemetry"
             >
               <RefreshCw className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleAdminSignOut}
+              className="p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-red-400 transition-colors"
+              title="Sign out of Admin Command Center"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -679,6 +707,22 @@ export default function AdminCommandCenterPage() {
                       </div>
                     )
                   )}
+                </div>
+
+                {/* Revoke All Sessions control */}
+                <div className="pt-3 border-t border-zinc-900 flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-semibold text-zinc-300">Coordinator Sessions</h4>
+                    <p className="text-[11px] text-zinc-500">Revoke stored browser auth tokens</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRevokeAllSessions}
+                    className="px-3 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800/60 text-red-300 hover:text-red-200 text-xs font-mono font-medium transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Revoke All Sessions
+                  </button>
                 </div>
               </div>
 

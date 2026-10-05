@@ -16,51 +16,59 @@ export async function POST(req: NextRequest) {
 
     const trimmed = passcode.trim();
 
-    // 1. Try Supabase verification
+    // 1. Check if input matches target card or Admin master passcode
+    let isAdmin = false;
+    let isMatched = false;
+
+    // Check Supabase if configured
     if (isSupabaseConfigured && supabase) {
       try {
-        // Attempt RPC first if configured
-        const { data: rpcMatch, error: rpcError } = await supabase.rpc(
-          'verify_card_passcode',
-          { p_card_id: cardId, p_passcode: trimmed }
-        );
-
-        if (!rpcError && typeof rpcMatch === 'boolean') {
-          if (!rpcMatch) {
-            // Anti-brute force delay
-            await new Promise((r) => setTimeout(r, 200));
-          }
-          return NextResponse.json({ success: rpcMatch });
-        }
-
-        // Direct check if RPC not created yet
-        const { data, error } = await supabase
+        const { data: rows } = await supabase
           .from('card_passwords')
-          .select('password_hash')
-          .eq('card_id', cardId)
-          .maybeSingle();
+          .select('card_id, password_hash')
+          .in('card_id', cardId === 'admin' ? ['admin'] : [cardId, 'admin']);
 
-        if (!error && data && data.password_hash) {
-          const isMatch = verifyPasscodeMatch(trimmed, data.password_hash);
-          if (!isMatch) {
-            await new Promise((r) => setTimeout(r, 200));
+        if (rows && rows.length > 0) {
+          const cardRow = rows.find((r) => r.card_id === cardId);
+          const adminRow = rows.find((r) => r.card_id === 'admin');
+
+          // Target card match
+          if (cardRow?.password_hash && verifyPasscodeMatch(trimmed, cardRow.password_hash)) {
+            isMatched = true;
+            isAdmin = cardId === 'admin';
           }
-          return NextResponse.json({ success: isMatch });
+
+          // Admin master key match (unlocks any card)
+          if (!isMatched && adminRow?.password_hash && verifyPasscodeMatch(trimmed, adminRow.password_hash)) {
+            isMatched = true;
+            isAdmin = true;
+          }
         }
       } catch (err) {
         console.warn('Supabase auth query error:', err);
       }
     }
 
-    // 2. Fallback to server defaults (never exposed to browser bundle)
-    const expected = SERVER_DEFAULT_PASSWORDS[cardId];
-    const isMatch = Boolean(expected && expected === trimmed);
+    // 2. Server fallback if Supabase didn't match or failed
+    if (!isMatched) {
+      const expected = SERVER_DEFAULT_PASSWORDS[cardId];
+      const adminExpected = SERVER_DEFAULT_PASSWORDS['admin'];
 
-    if (!isMatch) {
-      await new Promise((r) => setTimeout(r, 200));
+      if (expected && expected === trimmed) {
+        isMatched = true;
+        isAdmin = cardId === 'admin';
+      } else if (adminExpected && adminExpected === trimmed) {
+        isMatched = true;
+        isAdmin = true;
+      }
     }
 
-    return NextResponse.json({ success: isMatch });
+    if (!isMatched) {
+      await new Promise((r) => setTimeout(r, 200));
+      return NextResponse.json({ success: false });
+    }
+
+    return NextResponse.json({ success: true, isAdmin });
   } catch (err) {
     console.error('Auth verification error:', err);
     return NextResponse.json(

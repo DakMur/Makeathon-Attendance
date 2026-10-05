@@ -57,8 +57,8 @@ export default function ClassroomPage({
   // Check route guard
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const roomAuth = sessionStorage.getItem(`auth_card_${roomId}`) === 'true';
-      const adminAuth = sessionStorage.getItem('auth_card_admin') === 'true';
+      const roomAuth = localStorage.getItem(`auth_card_${roomId}`) === 'true';
+      const adminAuth = localStorage.getItem('auth_card_admin') === 'true';
 
       if (roomAuth || adminAuth) {
         setIsAuthenticated(true);
@@ -188,6 +188,14 @@ export default function ClassroomPage({
     }
   };
 
+  // Sign out this room's auth token
+  const handleSignOut = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`auth_card_${roomId}`);
+    }
+    router.push('/');
+  };
+
   if (!isValidRoom) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
@@ -288,6 +296,16 @@ export default function ClassroomPage({
             >
               <AlertTriangle className="w-4 h-4" />
               <span>Ping Admin / SOS</span>
+            </button>
+
+            {/* Sign Out */}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              title="Sign out from this room"
+              className="p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-red-400 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>

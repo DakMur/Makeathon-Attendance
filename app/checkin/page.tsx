@@ -14,7 +14,7 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PasswordModal } from '@/components/PasswordModal';
 import { getOptimizedSearchResults } from '@/lib/searchUtils';
-import { ArrowLeft, Database, AlertCircle, Sparkles, Filter, X } from 'lucide-react';
+import { ArrowLeft, Database, AlertCircle, Sparkles, Filter, X, LogOut } from 'lucide-react';
 
 export default function CheckInPage() {
   const router = useRouter();
@@ -42,8 +42,8 @@ export default function CheckInPage() {
   // Verify auth on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isCheckinAuth = sessionStorage.getItem('auth_card_checkin') === 'true';
-      const isAdminAuth = sessionStorage.getItem('auth_card_admin') === 'true';
+      const isCheckinAuth = localStorage.getItem('auth_card_checkin') === 'true';
+      const isAdminAuth = localStorage.getItem('auth_card_admin') === 'true';
       if (isCheckinAuth || isAdminAuth) {
         setIsAuthenticated(true);
       } else {
@@ -230,6 +230,13 @@ export default function CheckInPage() {
     return getOptimizedSearchResults(teams, searchQuery).all;
   }, [teams, searchQuery]);
 
+  const handleSignOut = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_card_checkin');
+    }
+    router.push('/');
+  };
+
   if (isAuthenticated === false) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
@@ -305,6 +312,15 @@ export default function CheckInPage() {
             <ExportCsvButton teams={teams} />
 
             <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
+
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-red-500 transition-colors"
+              title="Sign out of Check-In Attendance"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>

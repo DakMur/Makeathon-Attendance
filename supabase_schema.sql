@@ -32,15 +32,15 @@ $$;
 -- Seed Default Passwords
 INSERT INTO public.card_passwords (card_id, password_hash) VALUES
 ('admin', 'mibomba'),
-('checkin', 'checkin123'),
-('401', 'room401'),
-('402', 'room402'),
-('403', 'room403'),
-('404', 'room404'),
-('405', 'room405'),
-('406', 'room406'),
-('407', 'room407'),
-('408', 'room408')
+('checkin', 'jit@123'),
+('401', 'jit@123'),
+('402', 'jit@123'),
+('403', 'jit@123'),
+('404', 'jit@123'),
+('405', 'jit@123'),
+('406', 'jit@123'),
+('407', 'jit@123'),
+('408', 'jit@123')
 ON CONFLICT (card_id) DO NOTHING;
 
 -- 2. Master Teams & Main Attendance Table

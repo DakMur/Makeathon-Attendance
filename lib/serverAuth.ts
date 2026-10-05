@@ -3,15 +3,15 @@ import crypto from 'crypto';
 // Server-side fallback passwords (NEVER exported to client bundle)
 export const SERVER_DEFAULT_PASSWORDS: Record<string, string> = {
   admin: 'mibomba',
-  checkin: 'checkin123',
-  '401': 'room401',
-  '402': 'room402',
-  '403': 'room403',
-  '404': 'room404',
-  '405': 'room405',
-  '406': 'room406',
-  '407': 'room407',
-  '408': 'room408',
+  checkin: 'jit@123',
+  '401': 'jit@123',
+  '402': 'jit@123',
+  '403': 'jit@123',
+  '404': 'jit@123',
+  '405': 'jit@123',
+  '406': 'jit@123',
+  '407': 'jit@123',
+  '408': 'jit@123',
 };
 
 // Cryptographic hash helper

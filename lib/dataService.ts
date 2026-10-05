@@ -60,9 +60,12 @@ function setLocalItem<T>(key: string, value: T): void {
 // -----------------------------------------------------------------------------
 // 1. CARD PASSWORDS & ROUTE GUARD (Server-Verified)
 // -----------------------------------------------------------------------------
-export async function verifyCardPassword(cardId: string, inputPasscode: string): Promise<boolean> {
+export async function verifyCardPassword(
+  cardId: string,
+  inputPasscode: string
+): Promise<{ success: boolean; isAdmin?: boolean }> {
   const trimmed = inputPasscode.trim();
-  if (!trimmed) return false;
+  if (!trimmed) return { success: false };
 
   try {
     const res = await fetch('/api/auth/verify', {
@@ -73,13 +76,13 @@ export async function verifyCardPassword(cardId: string, inputPasscode: string):
 
     if (res.ok) {
       const data = await res.json();
-      return Boolean(data.success);
+      return { success: Boolean(data.success), isAdmin: Boolean(data.isAdmin) };
     }
   } catch (e) {
     console.warn('API verification error:', e);
   }
 
-  return false;
+  return { success: false };
 }
 
 export async function updateCardPassword(cardId: string, newPasscode: string): Promise<boolean> {

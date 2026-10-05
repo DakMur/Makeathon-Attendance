@@ -54,10 +54,13 @@ export function PasswordModal({
     setError(null);
 
     try {
-      const isValid = await verifyCardPassword(cardId, passcode);
-      if (isValid) {
+      const result = await verifyCardPassword(cardId, passcode);
+      if (result.success) {
         if (typeof window !== 'undefined') {
-          sessionStorage.setItem(`auth_card_${cardId}`, 'true');
+          localStorage.setItem(`auth_card_${cardId}`, 'true');
+          if (result.isAdmin) {
+            localStorage.setItem('auth_card_admin', 'true');
+          }
         }
         onSuccess();
       } else {

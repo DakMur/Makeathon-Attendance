@@ -13,6 +13,7 @@ import {
   Sparkles,
   ChevronRight,
   AlertTriangle,
+  LogOut,
 } from 'lucide-react';
 import { PasswordModal } from '@/components/PasswordModal';
 import {
@@ -128,12 +129,12 @@ export default function ViewportLandingPage() {
   const [unresolvedPingsCount, setUnresolvedPingsCount] = useState(0);
   const [currentTime, setCurrentTime] = useState('');
 
-  // Check which cards are already authenticated in sessionStorage
+  // Check which cards are already authenticated in localStorage
   const checkUnlockedCards = useCallback(() => {
     if (typeof window === 'undefined') return;
     const authStatus: Record<string, boolean> = {};
     CARDS.forEach((card) => {
-      authStatus[card.id] = sessionStorage.getItem(`auth_card_${card.id}`) === 'true';
+      authStatus[card.id] = localStorage.getItem(`auth_card_${card.id}`) === 'true';
     });
     setUnlockedCards(authStatus);
   }, []);
@@ -235,6 +236,13 @@ export default function ViewportLandingPage() {
     return { total, inCount, outCount: total - inCount };
   };
 
+  const handleSignOutAll = () => {
+    if (typeof window !== 'undefined') {
+      CARDS.forEach((c) => localStorage.removeItem(`auth_card_${c.id}`));
+      checkUnlockedCards();
+    }
+  };
+
   return (
     <main className="h-screen h-[100dvh] w-screen overflow-hidden bg-black text-white flex flex-col justify-between p-2.5 sm:p-4 select-none">
       {/* Viewport Header */}
@@ -266,6 +274,17 @@ export default function ViewportLandingPage() {
           <div className="text-[10px] px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
             10 NODES ACTIVE
           </div>
+          {Object.values(unlockedCards).some(Boolean) && (
+            <button
+              type="button"
+              onClick={handleSignOutAll}
+              title="Lock all active sessions on this device"
+              className="text-[10px] px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-red-400 flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3 h-3" />
+              <span>LOCK</span>
+            </button>
+          )}
         </div>
       </header>
 
