@@ -437,9 +437,7 @@ ON CONFLICT (sl_no) DO UPDATE SET
     member_4 = EXCLUDED.member_4,
     comments = EXCLUDED.comments;
 
--- Optional Reseed for classroom_presence from public.teams for Day 1:
--- (Uncomment and run if you want to cleanly reset classroom_presence to match the new roster)
-/*
+-- 10. Automatic Day 1 Presence Sync from public.teams
 DELETE FROM public.classroom_presence WHERE day_number = 1;
 
 INSERT INTO public.classroom_presence (day_number, classroom_id, team_name, participant_name, phone_number, is_team_lead, is_in_room)
@@ -465,4 +463,4 @@ SELECT 1, t.classroom_id, t.team_name, t.member_4, t.member_4_phone, FALSE, t.me
 FROM public.teams t WHERE t.member_4 IS NOT NULL AND t.member_4 != ''
 ON CONFLICT (classroom_id, day_number, participant_name) DO UPDATE 
 SET team_name = EXCLUDED.team_name, phone_number = EXCLUDED.phone_number, is_team_lead = FALSE;
-*/
+

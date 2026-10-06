@@ -180,7 +180,11 @@ export async function getClassroomPresence(
   roomId: string,
   dayNumber: number
 ): Promise<ClassroomPresence[]> {
-  const local = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+  let local = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+  if (local.some((p) => p.team_name === 'APEX' || p.team_name === 'TECH TROOPERS')) {
+    local = getInitialClassroomPresence(dayNumber);
+    setLocalItem(STORAGE_KEYS.PRESENCE, local);
+  }
 
   if (isSupabaseConfigured && supabase) {
     try {
@@ -250,7 +254,12 @@ export async function getAllClassroomPresence(dayNumber: number): Promise<Classr
     }
   }
 
-  const local = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+  let local = getLocalItem<ClassroomPresence[]>(STORAGE_KEYS.PRESENCE, []);
+  if (local.some((p) => p.team_name === 'APEX' || p.team_name === 'TECH TROOPERS')) {
+    local = getInitialClassroomPresence(dayNumber);
+    setLocalItem(STORAGE_KEYS.PRESENCE, local);
+    return local;
+  }
   const matching = local.filter((p) => p.day_number === dayNumber);
   if (matching.length > 0) return matching;
 
