@@ -39,7 +39,7 @@ const CARDS: CardDef[] = [
   {
     id: 'checkin',
     title: 'Check-In Attendance',
-    subtitle: 'Main 60-team spreadsheet view & phone roster',
+    subtitle: 'Master 51-team spreadsheet view & phone roster',
     href: '/checkin',
     iconType: 'checkin',
     badgeLabel: 'Master Roster',
@@ -48,7 +48,7 @@ const CARDS: CardDef[] = [
   {
     id: '401',
     title: 'Classroom 401',
-    subtitle: 'Teams 1 to 8 • Realtime Presence',
+    subtitle: '6 Teams (23 Members) • Realtime Presence',
     href: '/room/401',
     iconType: 'room',
     isSecured: true,
@@ -56,7 +56,7 @@ const CARDS: CardDef[] = [
   {
     id: '402',
     title: 'Classroom 402',
-    subtitle: 'Teams 9 to 16 • Realtime Presence',
+    subtitle: '5 Teams (18 Members) • Realtime Presence',
     href: '/room/402',
     iconType: 'room',
     isSecured: true,
@@ -64,7 +64,7 @@ const CARDS: CardDef[] = [
   {
     id: '403',
     title: 'Classroom 403',
-    subtitle: 'Teams 17 to 24 • Realtime Presence',
+    subtitle: '6 Teams (19 Members) • Realtime Presence',
     href: '/room/403',
     iconType: 'room',
     isSecured: true,
@@ -72,7 +72,7 @@ const CARDS: CardDef[] = [
   {
     id: '404',
     title: 'Classroom 404',
-    subtitle: 'Teams 25 to 32 • Realtime Presence',
+    subtitle: '9 Teams (31 Members) • Realtime Presence',
     href: '/room/404',
     iconType: 'room',
     isSecured: true,
@@ -80,7 +80,7 @@ const CARDS: CardDef[] = [
   {
     id: '405',
     title: 'Classroom 405',
-    subtitle: 'Teams 33 to 39 • Realtime Presence',
+    subtitle: 'Reserved / Unallocated',
     href: '/room/405',
     iconType: 'room',
     isSecured: true,
@@ -88,7 +88,7 @@ const CARDS: CardDef[] = [
   {
     id: '406',
     title: 'Classroom 406',
-    subtitle: 'Teams 40 to 46 • Realtime Presence',
+    subtitle: '9 Teams (32 Members) • Realtime Presence',
     href: '/room/406',
     iconType: 'room',
     isSecured: true,
@@ -96,7 +96,7 @@ const CARDS: CardDef[] = [
   {
     id: '407',
     title: 'Classroom 407',
-    subtitle: 'Teams 47 to 53 • Realtime Presence',
+    subtitle: '8 Teams (31 Members) • Realtime Presence',
     href: '/room/407',
     iconType: 'room',
     isSecured: true,
@@ -104,7 +104,7 @@ const CARDS: CardDef[] = [
   {
     id: '408',
     title: 'Classroom 408',
-    subtitle: 'Teams 54 to 60 • Realtime Presence',
+    subtitle: '8 Teams (29 Members) • Realtime Presence',
     href: '/room/408',
     iconType: 'room',
     isSecured: true,

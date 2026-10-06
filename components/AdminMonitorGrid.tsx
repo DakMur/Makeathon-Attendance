@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ClassroomPresence } from '@/lib/types';
 import {
   Users,
@@ -14,6 +14,7 @@ import {
   Search,
 } from 'lucide-react';
 import Link from 'next/link';
+import { INITIAL_TEAMS } from '@/lib/defaultTeams';
 
 interface AdminMonitorGridProps {
   presences: ClassroomPresence[];
@@ -30,9 +31,45 @@ export function AdminMonitorGrid({
   const [inspectRoomId, setInspectRoomId] = useState<string | null>(null);
   const [filterQuery, setFilterQuery] = useState('');
 
-  // Calculate room statistics
+  // Build a per-room fallback from the static roster (all OUT) for rooms
+  // that haven't been seeded into classroom_presence yet.
+  const fallbackByRoom = useMemo(() => {
+    const map: Record<string, ClassroomPresence[]> = {};
+    INITIAL_TEAMS.forEach((team) => {
+      const rid = team.classroom_id || '401';
+      if (!map[rid]) map[rid] = [];
+      const members = [
+        { name: team.member_1, phone: team.member_1_phone, isLead: true },
+        { name: team.member_2, phone: team.member_2_phone, isLead: false },
+        { name: team.member_3, phone: team.member_3_phone, isLead: false },
+        { name: team.member_4, phone: team.member_4_phone, isLead: false },
+      ];
+      members.forEach((m) => {
+        if (m.name && m.name.trim()) {
+          map[rid].push({
+            day_number: dayNumber,
+            classroom_id: rid,
+            team_name: team.team_name,
+            participant_name: m.name.trim(),
+            phone_number: m.phone || '',
+            is_team_lead: m.isLead,
+            is_in_room: false,   // Default: OUT
+            last_toggle_time: new Date().toISOString(),
+            updated_by: 'system',
+          });
+        }
+      });
+    });
+    return map;
+  }, [dayNumber]);
+
+  // Calculate room statistics — use DB presences if available, else fallback roster
   const roomStats = rooms.map((roomId) => {
-    const roomPresences = presences.filter((p) => p.classroom_id === roomId);
+    const dbPresences = presences.filter((p) => p.classroom_id === roomId);
+    const roomPresences = dbPresences.length > 0
+      ? dbPresences
+      : (fallbackByRoom[roomId] ?? []);
+
     const total = roomPresences.length;
     const inCount = roomPresences.filter((p) => p.is_in_room).length;
     const outCount = total - inCount;

@@ -107,6 +107,19 @@ export function getOptimizedSearchResults(
     }
   });
 
+  // 6. Check if CARF code, college, or comments match the query
+  teams.forEach((t) => {
+    if (seenSlNos.has(t.sl_no)) return;
+    const extra = [t.carf_code, t.college, t.comments, t.city, t.state]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    if (extra.includes(query)) {
+      containsList.push(t);
+      seenSlNos.add(t.sl_no);
+    }
+  });
+
   return {
     startsWith: startsWithList,
     contains: containsList,

@@ -193,15 +193,21 @@ export async function getClassroomPresence(
       if (!error && data && data.length > 0) {
         return data as ClassroomPresence[];
       } else if (!error && (!data || data.length === 0)) {
-        // Need to seed if empty for this room and day
+        // Seed if empty — use upsert to guard against race-condition duplicates
+        // (multiple clients loading simultaneously can all see 0 rows before any insert lands)
         const seeded = getInitialClassroomPresence(dayNumber).filter(
           (p) => p.classroom_id === roomId
         );
         if (seeded.length > 0) {
           try {
-            await supabase.from('classroom_presence').insert(seeded);
+            await supabase
+              .from('classroom_presence')
+              .upsert(seeded, {
+                onConflict: 'classroom_id,day_number,participant_name',
+                ignoreDuplicates: true,
+              });
           } catch (insertErr) {
-            console.warn('Could not insert seed presence to Supabase:', insertErr);
+            console.warn('Could not seed presence to Supabase:', insertErr);
           }
         }
         return seeded;
@@ -642,7 +648,12 @@ export async function removeClassroom(roomId: string): Promise<boolean> {
 // =============================================================================
 
 export function getTeams(): Team[] {
-  return getLocalItem<Team[]>(STORAGE_KEYS.TEAMS, INITIAL_TEAMS);
+  const current = getLocalItem<Team[]>(STORAGE_KEYS.TEAMS, INITIAL_TEAMS);
+  if (current && current.length > 51 && current.some((t) => t.team_name === 'APEX' || t.sl_no === 60)) {
+    saveTeams(INITIAL_TEAMS);
+    return INITIAL_TEAMS;
+  }
+  return current;
 }
 
 export function saveTeams(teams: Team[]): void {

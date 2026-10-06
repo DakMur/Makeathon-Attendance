@@ -25,6 +25,10 @@ export interface Team {
   member_4_oct9: boolean;
   comments: string;
   updated_at?: string;
+  carf_code?: string;
+  college?: string;
+  city?: string;
+  state?: string;
 }
 
 export type AttendanceField = 

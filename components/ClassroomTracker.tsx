@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { ClassroomPresence } from '@/lib/types';
 import { Check, X, Phone, UserCheck, Shield } from 'lucide-react';
+import { INITIAL_TEAMS } from '@/lib/defaultTeams';
 
 interface ClassroomTrackerProps {
   roomId: string;
@@ -24,10 +25,46 @@ export function ClassroomTracker({
   onTogglePresence,
   isUpdatingName,
 }: ClassroomTrackerProps) {
+
+  // If Supabase hasn't seeded yet for this room/day, synthesise a fallback list
+  // from INITIAL_TEAMS so all assigned participants are always visible as OUT.
+  const effectivePresences: ClassroomPresence[] = useMemo(() => {
+    if (presences.length > 0) return presences;
+
+    // Build a synthetic presence list (all OUT) from the static team roster
+    const fallback: ClassroomPresence[] = [];
+    INITIAL_TEAMS
+      .filter((team) => team.classroom_id === roomId)
+      .forEach((team) => {
+        const members = [
+          { name: team.member_1, phone: team.member_1_phone, isLead: true },
+          { name: team.member_2, phone: team.member_2_phone, isLead: false },
+          { name: team.member_3, phone: team.member_3_phone, isLead: false },
+          { name: team.member_4, phone: team.member_4_phone, isLead: false },
+        ];
+        members.forEach((m) => {
+          if (m.name && m.name.trim()) {
+            fallback.push({
+              day_number: dayNumber,
+              classroom_id: roomId,
+              team_name: team.team_name,
+              participant_name: m.name.trim(),
+              phone_number: m.phone || '',
+              is_team_lead: m.isLead,
+              is_in_room: false,   // Default: OUT / NOT ENTERED
+              last_toggle_time: new Date().toISOString(),
+              updated_by: 'system',
+            });
+          }
+        });
+      });
+    return fallback;
+  }, [presences, roomId, dayNumber]);
+
   // Group participants by team
   const teamGroups: TeamGroup[] = useMemo(() => {
     const map = new Map<string, ClassroomPresence[]>();
-    presences.forEach((p) => {
+    effectivePresences.forEach((p) => {
       const list = map.get(p.team_name) || [];
       list.push(p);
       map.set(p.team_name, list);
@@ -45,13 +82,13 @@ export function ClassroomTracker({
     });
 
     return groups;
-  }, [presences]);
+  }, [effectivePresences]);
 
-  if (presences.length === 0) {
+  if (effectivePresences.length === 0) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-12 text-center">
         <p className="text-zinc-500 text-sm font-mono">
-          No participants registered in Room {roomId} for Day {dayNumber} yet.
+          No teams are assigned to Room {roomId} yet.
         </p>
       </div>
     );
@@ -62,7 +99,7 @@ export function ClassroomTracker({
       {/* Table header */}
       <div className="grid grid-cols-12 px-4 py-2.5 bg-zinc-900/60 border-b border-zinc-800/80 text-[11px] font-mono uppercase tracking-wider text-zinc-400">
         <div className="col-span-3 font-semibold">Assigned Team</div>
-        <div className="col-span-6 font-semibold">Participant & Phone</div>
+        <div className="col-span-6 font-semibold">Participant &amp; Phone</div>
         <div className="col-span-3 text-right font-semibold">Room Status</div>
       </div>
 

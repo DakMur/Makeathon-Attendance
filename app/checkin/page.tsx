@@ -111,8 +111,17 @@ export default function CheckInPage() {
       const local = localStorage.getItem('makeathon_teams_data');
       if (local) {
         try {
-          setTeams(JSON.parse(local));
-          return;
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Auto-migrate if local storage still holds old mock data
+            if (parsed.length > 51 && parsed.some((t: Team) => t.team_name === 'APEX' || t.sl_no === 60)) {
+              localStorage.setItem('makeathon_teams_data', JSON.stringify(INITIAL_TEAMS));
+              setTeams(INITIAL_TEAMS);
+              return;
+            }
+            setTeams(parsed);
+            return;
+          }
         } catch (e) {
           console.warn('Error reading local teams', e);
         }
