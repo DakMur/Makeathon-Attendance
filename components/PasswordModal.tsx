@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, KeyRound, AlertCircle, Loader2, X, ShieldCheck } from 'lucide-react';
+import { Lock, KeyRound, AlertCircle, Loader2, X, ShieldCheck, ShieldOff } from 'lucide-react';
 import { verifyCardPassword } from '@/lib/dataService';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -24,6 +25,49 @@ export function PasswordModal({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ── Lockdown state ─────────────────────────────────────────────────────────
+  const [isSystemLocked, setIsSystemLocked] = useState(false);
+  const isAdminCard = cardId === 'admin';
+
+  // Fetch current lockdown state and subscribe for live updates
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // 1. Fetch initial value
+    const fetchLockdown = async () => {
+      if (isSupabaseConfigured && supabase) {
+        const { data } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'is_system_locked')
+          .single();
+        if (data) setIsSystemLocked(Boolean(data.value));
+      }
+    };
+    fetchLockdown();
+
+    // 2. Subscribe to real-time changes
+    let channel: any = null;
+    if (isSupabaseConfigured && supabase) {
+      channel = supabase
+        .channel('lockdown_modal_watch')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'system_settings' },
+          (payload) => {
+            if (payload.new?.key === 'is_system_locked') {
+              setIsSystemLocked(Boolean(payload.new.value));
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel && supabase) supabase.removeChannel(channel);
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen) {
       setPasscode('');
@@ -41,12 +85,26 @@ export function PasswordModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Invalidate non-admin active sessions when lockdown engages
+  useEffect(() => {
+    if (isSystemLocked && !isAdminCard && typeof window !== 'undefined') {
+      const cardIds = ['checkin', '401', '402', '403', '404', '405', '406', '407', '408'];
+      cardIds.forEach((id) => localStorage.removeItem(`auth_card_${id}`));
+    }
+  }, [isSystemLocked, isAdminCard]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passcode.trim()) {
       setError('Please enter passcode');
+      return;
+    }
+
+    // Block non-admin submissions during lockdown
+    if (isSystemLocked && !isAdminCard) {
+      setError('System Lockdown is in effect. Non-admin access is disabled.');
       return;
     }
 
@@ -74,6 +132,8 @@ export function PasswordModal({
     }
   };
 
+  const isBlocked = isSystemLocked && !isAdminCard;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
       <div className="relative w-full max-w-sm rounded-xl border border-zinc-800 bg-[#09090b] p-6 shadow-2xl ring-1 ring-zinc-700/30">
@@ -88,8 +148,16 @@ export function PasswordModal({
 
         {/* Modal Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700/60 flex items-center justify-center mb-3 text-zinc-200">
-            {cardId === 'admin' ? (
+          <div
+            className={`w-12 h-12 rounded-full border flex items-center justify-center mb-3 transition-colors ${
+              isBlocked
+                ? 'bg-red-950 border-red-700/60'
+                : 'bg-zinc-900 border-zinc-700/60'
+            }`}
+          >
+            {isBlocked ? (
+              <ShieldOff className="w-6 h-6 text-red-400" />
+            ) : cardId === 'admin' ? (
               <ShieldCheck className="w-6 h-6 text-blue-400" />
             ) : (
               <Lock className="w-6 h-6 text-zinc-300" />
@@ -102,6 +170,22 @@ export function PasswordModal({
             Enter authorized passcode to access this section
           </p>
         </div>
+
+        {/* ── System Lockdown Banner ────────────────────────────────────────── */}
+        {isBlocked && (
+          <div className="mb-4 rounded-lg border border-red-600/60 bg-red-950/40 p-3 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
+            <ShieldOff className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-red-300 leading-snug">
+                System Lockdown in Effect
+              </p>
+              <p className="text-[11px] text-red-400/80 mt-0.5 leading-relaxed">
+                Non-admin logins are currently disabled by Administration. Please
+                contact the admin team.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -116,8 +200,8 @@ export function PasswordModal({
                   setPasscode(e.target.value);
                   if (error) setError(null);
                 }}
-                placeholder="Enter passcode..."
-                disabled={isLoading}
+                placeholder={isBlocked ? 'Login disabled during lockdown' : 'Enter passcode...'}
+                disabled={isLoading || isBlocked}
                 className="w-full pl-9 pr-3 py-2 text-sm bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-hidden focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 font-mono tracking-wider transition-colors disabled:opacity-50"
               />
             </div>
@@ -139,7 +223,7 @@ export function PasswordModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading || !passcode.trim()}
+              disabled={isLoading || !passcode.trim() || isBlocked}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
             >
               {isLoading ? (

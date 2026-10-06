@@ -98,4 +98,14 @@ export interface SystemSettings {
   day_turnover_time: string;
   quick_action_buttons: string[];
   classroom_coordinators: Record<string, string[]>;
+  is_system_locked?: boolean;
+}
+
+export interface ChatMessage {
+  id?: number;
+  channel_id: string; // 'admin_global' | 'room_401' .. 'room_408'
+  sender_name: string;
+  sender_role: 'admin' | 'coordinator';
+  message: string;
+  created_at: string;
 }

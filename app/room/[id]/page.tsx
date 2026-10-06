@@ -20,6 +20,7 @@ import { PasswordModal } from '@/components/PasswordModal';
 import { ClassroomTracker } from '@/components/ClassroomTracker';
 import { QuickActionToolbar } from '@/components/QuickActionToolbar';
 import { PingAdminModal } from '@/components/PingAdminModal';
+import { ChatDrawer } from '@/components/ChatDrawer';
 import {
   getSystemSettings,
   getClassroomPresence,
@@ -53,6 +54,9 @@ export default function ClassroomPage({
   const [isLoading, setIsLoading] = useState(true);
   const [isPingModalOpen, setIsPingModalOpen] = useState(false);
   const [isUpdatingName, setIsUpdatingName] = useState<string | null>(null);
+
+  // Lockdown state
+  const [isSystemLocked, setIsSystemLocked] = useState(false);
 
   // Check route guard
   useEffect(() => {
@@ -139,7 +143,24 @@ export default function ClassroomPage({
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'system_settings' },
-          () => loadRoomData()
+          (payload) => {
+            loadRoomData();
+            // Lockdown engagement: invalidate this non-admin session immediately
+            const newRow = payload.new as Record<string, any>;
+            if (newRow?.key === 'is_system_locked') {
+              const locked = Boolean(newRow.value);
+              setIsSystemLocked(locked);
+              const isAdmin = typeof window !== 'undefined' &&
+                localStorage.getItem('auth_card_admin') === 'true';
+              if (locked && !isAdmin) {
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem(`auth_card_${roomId}`);
+                }
+                setIsAuthenticated(false);
+                setShowPasswordModal(true);
+              }
+            }
+          }
         )
         .subscribe();
     }
@@ -372,6 +393,16 @@ export default function ClassroomPage({
         coordinatorName={primaryCoordinator}
         onClose={() => setIsPingModalOpen(false)}
       />
+
+      {/* Room-scoped Chat Drawer */}
+      {isAuthenticated && (
+        <ChatDrawer
+          mode="room"
+          roomId={roomId}
+          senderName={primaryCoordinator}
+          senderRole="coordinator"
+        />
+      )}
     </div>
   );
 }

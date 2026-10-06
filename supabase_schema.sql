@@ -210,3 +210,44 @@ BEGIN
     EXCEPTION WHEN duplicate_object THEN NULL;
     END;
 END $$;
+
+-- ==============================================================================
+-- NEW: Chat & Lockdown Features (Incremental Migration)
+-- ==============================================================================
+
+-- 8. Scoped Group Chat Messages Table
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+    id SERIAL PRIMARY KEY,
+    channel_id TEXT NOT NULL,          -- 'admin_global' OR 'room_401' through 'room_408'
+    sender_name TEXT NOT NULL,
+    sender_role TEXT NOT NULL,          -- 'admin' OR 'coordinator'
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_channel
+ON public.chat_messages (channel_id, created_at DESC);
+
+-- 9. System Lockdown Flag
+INSERT INTO public.system_settings (key, value) VALUES
+('is_system_locked', 'false'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
+-- RLS for chat_messages
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    DROP POLICY IF EXISTS "Allow public read/write on chat_messages" ON public.chat_messages;
+END $$;
+
+CREATE POLICY "Allow public read/write on chat_messages" ON public.chat_messages FOR ALL USING (true) WITH CHECK (true);
+
+-- Enable Realtime for chat_messages
+DO $$
+BEGIN
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+END $$;

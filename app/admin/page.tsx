@@ -26,12 +26,15 @@ import {
   EyeOff,
   ShieldCheck,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
 import { PasswordModal } from '@/components/PasswordModal';
 import { AdminMonitorGrid } from '@/components/AdminMonitorGrid';
 import { NoticeBroadcaster } from '@/components/NoticeBroadcaster';
 import { CsvExporter } from '@/components/CsvExporter';
 import { RosterManager } from '@/components/RosterManager';
+import { LockdownToggle } from '@/components/LockdownToggle';
+import { ChatDrawer } from '@/components/ChatDrawer';
 import {
   getSystemSettings,
   updateSystemSetting,
@@ -60,8 +63,11 @@ export default function AdminCommandCenterPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  // Active Tab: 'monitor' | 'notices' | 'config' | 'audit'
-  const [activeTab, setActiveTab] = useState<'monitor' | 'notices' | 'config' | 'audit' | 'roster'>('monitor');
+  // Active Tab: 'monitor' | 'notices' | 'config' | 'audit' | 'roster' | 'chat'
+  const [activeTab, setActiveTab] = useState<'monitor' | 'notices' | 'config' | 'audit' | 'roster' | 'chat'>('monitor');
+
+  // Lockdown state
+  const [isSystemLocked, setIsSystemLocked] = useState(false);
 
   // Data states
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
@@ -127,6 +133,16 @@ export default function AdminCommandCenterPage() {
       // Load presences for active day
       const presList = await getAllClassroomPresence(sysSettings.current_day || 1);
       setPresences(presList);
+
+      // Fetch lockdown state separately (not part of SystemSettings shape)
+      if (isSupabaseConfigured && supabase) {
+        const { data: lockData } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'is_system_locked')
+          .single();
+        if (lockData) setIsSystemLocked(Boolean(lockData.value));
+      }
     } catch (e) {
       console.warn('Error loading admin data:', e);
     }
@@ -155,8 +171,13 @@ export default function AdminCommandCenterPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'classroom_action_logs' }, () => {
           loadAdminData();
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'system_settings' }, (payload) => {
           loadAdminData();
+          // Also update lockdown state immediately from realtime payload
+          const newRow = payload.new as Record<string, any>;
+          if (newRow?.key === 'is_system_locked') {
+            setIsSystemLocked(Boolean(newRow.value));
+          }
         })
         .subscribe();
     }
@@ -327,7 +348,7 @@ export default function AdminCommandCenterPage() {
             </div>
           </div>
 
-          {/* SOS Alert Counter Badge */}
+          {/* SOS Alert Counter Badge + Lockdown Toggle + Actions */}
           <div className="flex items-center gap-2">
             {unresolvedPings.length > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-950/80 border border-red-500/60 text-red-400 text-xs font-mono font-bold animate-pulse shadow-lg">
@@ -335,6 +356,13 @@ export default function AdminCommandCenterPage() {
                 <span>{unresolvedPings.length} ACTIVE SOS PING(S)</span>
               </div>
             )}
+
+            {/* Emergency Lockdown Toggle */}
+            <LockdownToggle
+              isLocked={isSystemLocked}
+              onToggle={(newLocked) => setIsSystemLocked(newLocked)}
+            />
+
             <button
               type="button"
               onClick={loadAdminData}
@@ -467,6 +495,19 @@ export default function AdminCommandCenterPage() {
           >
             <Users className="w-3.5 h-3.5" />
             <span>Tab 5: Roster Management</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('chat')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-mono font-medium transition-all ${
+              activeTab === 'chat'
+                ? 'bg-teal-600 text-white shadow-xs font-bold'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Tab 6: Chat Hub</span>
           </button>
         </div>
       </div>
@@ -867,7 +908,55 @@ export default function AdminCommandCenterPage() {
         {activeTab === 'roster' && (
           <RosterManager />
         )}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: CHAT HUB (Admin Global + All 8 Classroom Channels)                */}
+        {/* ========================================================================= */}
+        {activeTab === 'chat' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Multi-Channel Chat Hub</h2>
+                <p className="text-xs text-zinc-400">
+                  Monitor &amp; reply to coordinators in all 8 rooms, or broadcast on the Admin Global channel.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-1 rounded bg-teal-950 text-teal-400 border border-teal-800/60">
+                REAL-TIME
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-6 flex flex-col items-center justify-center gap-4 min-h-[320px] shadow-xl">
+              <div className="w-14 h-14 rounded-2xl bg-teal-950/60 border border-teal-700/40 flex items-center justify-center text-teal-400">
+                <MessageSquare className="w-7 h-7" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-white">Chat Hub is Active</p>
+                <p className="text-xs text-zinc-400 mt-1 max-w-xs">
+                  Use the floating <span className="text-teal-400 font-bold">chat button</span> (bottom-right corner) to open the full multi-channel Chat Hub.
+                  Switch between <span className="text-blue-400 font-mono">admin_global</span> and any of the 8 classroom channels.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {['admin_global', 'room_401','room_402','room_403','room_404','room_405','room_406','room_407','room_408'].map((ch) => (
+                  <span key={ch} className="text-[10px] font-mono px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400">
+                    #{ch}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* ── Floating Chat Hub Drawer (Admin mode, visible on all tabs) ── */}
+      {isAuthenticated && (
+        <ChatDrawer
+          mode="admin"
+          senderName="Admin"
+          senderRole="admin"
+        />
+      )}
     </div>
   );
 }
