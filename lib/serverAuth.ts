@@ -4,6 +4,7 @@ import crypto from 'crypto';
 export const SERVER_DEFAULT_PASSWORDS: Record<string, string> = {
   admin: 'mibomba',
   checkin: 'jit@123',
+  makerspace: 'jit@123',
   '401': 'jit@123',
   '402': 'jit@123',
   '403': 'jit@123',

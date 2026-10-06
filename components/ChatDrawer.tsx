@@ -52,10 +52,20 @@ async function fetchMessages(channelId: string, limit = 60): Promise<ChatMessage
   return (data ?? []) as ChatMessage[];
 }
 
-async function sendMessage(msg: Omit<ChatMessage, 'id' | 'created_at'>): Promise<void> {
-  if (!isSupabaseConfigured || !supabase) return;
-  const { error } = await supabase.from('chat_messages').insert(msg);
-  if (error) console.warn('ChatDrawer sendMessage error:', error);
+async function sendMessage(
+  msg: Omit<ChatMessage, 'id' | 'created_at'>
+): Promise<ChatMessage | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert(msg)
+    .select()
+    .single();
+  if (error) {
+    console.warn('ChatDrawer sendMessage error:', error);
+    return null;
+  }
+  return data as ChatMessage;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -84,7 +94,15 @@ export function ChatDrawer({ mode, roomId, senderName, senderRole }: ChatDrawerP
   const loadMessages = useCallback(async (channelId: string) => {
     setIsLoading(true);
     const msgs = await fetchMessages(channelId);
-    setMessages(msgs);
+    // Deduplicate by id if any duplicates exist in database
+    const uniqueMsgs: ChatMessage[] = [];
+    const seenIds = new Set<number>();
+    msgs.forEach((m) => {
+      if (m.id && seenIds.has(m.id)) return;
+      if (m.id) seenIds.add(m.id);
+      uniqueMsgs.push(m);
+    });
+    setMessages(uniqueMsgs);
     setIsLoading(false);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'instant' }), 60);
   }, []);
@@ -113,8 +131,29 @@ export function ChatDrawer({ mode, roomId, senderName, senderRole }: ChatDrawerP
           (payload) => {
             const newMsg = payload.new as ChatMessage;
             setMessages((prev) => {
-              // Deduplicate by id
+              // 1. Direct deduplication by real database id
               if (prev.some((m) => m.id === newMsg.id)) return prev;
+
+              // 2. Check if this matches a pending optimistic message from the current client
+              const optimisticIdx = prev.findIndex(
+                (m) =>
+                  Boolean(m.tempId) &&
+                  m.channel_id === newMsg.channel_id &&
+                  m.sender_name === newMsg.sender_name &&
+                  m.message === newMsg.message &&
+                  Math.abs(
+                    new Date(m.created_at).getTime() - new Date(newMsg.created_at).getTime()
+                  ) < 15000
+              );
+
+              if (optimisticIdx !== -1) {
+                // Replace optimistic message with confirmed backend row
+                const next = [...prev];
+                next[optimisticIdx] = newMsg;
+                return next;
+              }
+
+              // 3. Otherwise append new incoming message from socket
               return [...prev, newMsg];
             });
             if (!isOpen) {
@@ -168,9 +207,11 @@ export function ChatDrawer({ mode, roomId, senderName, senderRole }: ChatDrawerP
     setIsSending(true);
     setDraft('');
 
-    // Optimistic insert
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    // Optimistic insert with unique tempId
     const optimistic: ChatMessage = {
-      id: Date.now(), // temp id
+      tempId,
       channel_id: activeChannel,
       sender_name: senderName || (senderRole === 'admin' ? 'Admin' : 'Coordinator'),
       sender_role: senderRole,
@@ -180,12 +221,23 @@ export function ChatDrawer({ mode, roomId, senderName, senderRole }: ChatDrawerP
     setMessages((prev) => [...prev, optimistic]);
     scrollToBottom();
 
-    await sendMessage({
+    const confirmed = await sendMessage({
       channel_id: activeChannel,
       sender_name: optimistic.sender_name,
       sender_role: senderRole,
       message: text,
     });
+
+    if (confirmed) {
+      setMessages((prev) => {
+        // If realtime subscription already replaced or inserted it, filter out tempId
+        if (prev.some((m) => m.id === confirmed.id)) {
+          return prev.filter((m) => m.tempId !== tempId);
+        }
+        // Otherwise replace optimistic with confirmed row
+        return prev.map((m) => (m.tempId === tempId ? confirmed : m));
+      });
+    }
 
     setIsSending(false);
     inputRef.current?.focus();
@@ -307,7 +359,7 @@ export function ChatDrawer({ mode, roomId, senderName, senderRole }: ChatDrawerP
               const isAdmin = msg.sender_role === 'admin';
               return (
                 <div
-                  key={msg.id ?? idx}
+                  key={msg.id ?? msg.tempId ?? idx}
                   className={`flex flex-col gap-0.5 ${isMe ? 'items-end' : 'items-start'}`}
                 >
                   {/* Sender label */}

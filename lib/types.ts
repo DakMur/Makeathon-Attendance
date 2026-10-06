@@ -107,9 +107,34 @@ export interface SystemSettings {
 
 export interface ChatMessage {
   id?: number;
+  tempId?: string;
   channel_id: string; // 'admin_global' | 'room_401' .. 'room_408'
   sender_name: string;
   sender_role: 'admin' | 'coordinator';
   message: string;
   created_at: string;
+}
+
+export interface DashboardCard {
+  id: string;
+  title: string;
+  subtitle: string;
+  href?: string;
+  iconType: 'checkin' | 'room' | 'admin' | 'makerspace' | 'custom';
+  type: 'checkin' | 'room' | 'admin' | 'makerspace' | 'custom';
+  badgeLabel?: string;
+  isSecured: boolean;
+  createdAt?: string;
+}
+
+export interface MakerspaceLog {
+  id: number | string;
+  team_name: string;
+  person_name: string;
+  resource_requested: string;
+  check_in_time: string;
+  check_out_time?: string | null;
+  status: 'checked_in' | 'checked_out';
+  notes?: string;
+  created_at?: string;
 }

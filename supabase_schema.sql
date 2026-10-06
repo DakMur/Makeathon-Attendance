@@ -33,6 +33,7 @@ $$;
 INSERT INTO public.card_passwords (card_id, password_hash) VALUES
 ('admin', 'mibomba'),
 ('checkin', 'jit@123'),
+('makerspace', 'jit@123'),
 ('401', 'jit@123'),
 ('402', 'jit@123'),
 ('403', 'jit@123'),
@@ -463,4 +464,42 @@ SELECT 1, t.classroom_id, t.team_name, t.member_4, t.member_4_phone, FALSE, t.me
 FROM public.teams t WHERE t.member_4 IS NOT NULL AND t.member_4 != ''
 ON CONFLICT (classroom_id, day_number, participant_name) DO UPDATE 
 SET team_name = EXCLUDED.team_name, phone_number = EXCLUDED.phone_number, is_team_lead = FALSE;
+
+-- ==============================================================================
+-- 11. MAKERSPACE CHECK-IN LOG TABLE
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.makerspace_logs (
+    id SERIAL PRIMARY KEY,
+    team_name TEXT NOT NULL,
+    person_name TEXT NOT NULL,
+    resource_requested TEXT NOT NULL DEFAULT '',
+    check_in_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    check_out_time TIMESTAMP WITH TIME ZONE,
+    status TEXT NOT NULL DEFAULT 'checked_in', -- 'checked_in' | 'checked_out'
+    notes TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_makerspace_logs_status
+ON public.makerspace_logs (status, check_in_time DESC);
+
+-- RLS for makerspace_logs
+ALTER TABLE public.makerspace_logs ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    DROP POLICY IF EXISTS "Allow public read/write on makerspace_logs" ON public.makerspace_logs;
+END $$;
+
+CREATE POLICY "Allow public read/write on makerspace_logs" ON public.makerspace_logs FOR ALL USING (true) WITH CHECK (true);
+
+-- Enable Realtime for makerspace_logs
+DO $$
+BEGIN
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.makerspace_logs;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+END $$;
 

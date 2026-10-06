@@ -7,6 +7,7 @@ import {
   Notice,
   CoordinatorPing,
   SystemSettings,
+  MakerspaceLog,
 } from './types';
 import {
   DEFAULT_COORDINATORS,
@@ -110,7 +111,7 @@ export async function updateCardPassword(cardId: string, newPasscode: string): P
 export async function getAllCardPasswords(): Promise<Record<string, string>> {
   // Never expose plaintext passwords to the client browser.
   // Returns a masked indicator for configured cards.
-  const cards = ['admin', 'checkin', '401', '402', '403', '404', '405', '406', '407', '408'];
+  const cards = ['admin', 'checkin', 'makerspace', '401', '402', '403', '404', '405', '406', '407', '408'];
   const masked: Record<string, string> = {};
   cards.forEach((c) => {
     masked[c] = '••••••••';
@@ -775,3 +776,119 @@ export function removeParticipantFromTeam(teamId: number, slot: 1 | 2 | 3 | 4): 
   return true;
 }
 
+// =============================================================================
+// 10. MAKERSPACE CHECK-IN / CHECK-OUT
+// =============================================================================
+
+const MAKERSPACE_STORAGE_KEY = 'makeathon_makerspace_logs';
+
+export async function getMakerspaceLogs(activeOnly: boolean = false): Promise<MakerspaceLog[]> {
+  const localLogs = getLocalItem<MakerspaceLog[]>(MAKERSPACE_STORAGE_KEY, []);
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      let query = supabase
+        .from('makerspace_logs')
+        .select('*')
+        .order('check_in_time', { ascending: false })
+        .limit(200);
+      if (activeOnly) {
+        query = query.eq('status', 'checked_in');
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        return data as MakerspaceLog[];
+      }
+    } catch (e) {
+      console.warn('Supabase getMakerspaceLogs error:', e);
+    }
+  }
+
+  if (activeOnly) {
+    return localLogs.filter((l) => l.status === 'checked_in');
+  }
+  return localLogs;
+}
+
+export async function checkInMakerspace(
+  teamName: string,
+  personName: string,
+  resourceRequested: string,
+  notes: string = ''
+): Promise<MakerspaceLog> {
+  const now = new Date().toISOString();
+  const newLog: MakerspaceLog = {
+    id: Date.now(),
+    team_name: teamName.trim(),
+    person_name: personName.trim(),
+    resource_requested: resourceRequested.trim(),
+    check_in_time: now,
+    check_out_time: null,
+    status: 'checked_in',
+    notes: notes.trim(),
+    created_at: now,
+  };
+
+  const local = getLocalItem<MakerspaceLog[]>(MAKERSPACE_STORAGE_KEY, []);
+  setLocalItem(MAKERSPACE_STORAGE_KEY, [newLog, ...local]);
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('makerspace_logs')
+        .insert({
+          team_name: newLog.team_name,
+          person_name: newLog.person_name,
+          resource_requested: newLog.resource_requested,
+          status: 'checked_in',
+          notes: newLog.notes,
+        })
+        .select()
+        .single();
+      if (!error && data) return data as MakerspaceLog;
+    } catch (e) {
+      console.warn('Supabase checkInMakerspace error:', e);
+    }
+  }
+
+  return newLog;
+}
+
+export async function checkOutMakerspace(logId: number | string): Promise<boolean> {
+  const now = new Date().toISOString();
+
+  const local = getLocalItem<MakerspaceLog[]>(MAKERSPACE_STORAGE_KEY, []);
+  const updated = local.map((l) =>
+    l.id === logId ? { ...l, status: 'checked_out' as const, check_out_time: now } : l
+  );
+  setLocalItem(MAKERSPACE_STORAGE_KEY, updated);
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase
+        .from('makerspace_logs')
+        .update({ status: 'checked_out', check_out_time: now })
+        .eq('id', logId);
+      if (error) console.warn('Supabase checkOutMakerspace error:', error);
+      return !error;
+    } catch (e) {
+      console.warn('Supabase checkOutMakerspace failed:', e);
+    }
+  }
+  return true;
+}
+
+export async function deleteMakerspaceLog(logId: number | string): Promise<boolean> {
+  const local = getLocalItem<MakerspaceLog[]>(MAKERSPACE_STORAGE_KEY, []);
+  setLocalItem(MAKERSPACE_STORAGE_KEY, local.filter((l) => l.id !== logId));
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase.from('makerspace_logs').delete().eq('id', logId);
+      return !error;
+    } catch (e) {
+      console.warn('Supabase deleteMakerspaceLog error:', e);
+    }
+  }
+  return true;
+}
